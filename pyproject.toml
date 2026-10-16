@@ -7,7 +7,14 @@ name = "mapho"
 version = "0.1.0"
 description = "MAPHO: Many-body Potential-based Hamiltonian Operator"
 requires-python = ">=3.10"
-dependencies = ["torch>=2.2", "e3nn>=0.5.1,<0.6", "numpy>=1.24", "ase>=3.22", "h5py>=3.8"]
+dependencies = [
+    "torch>=2.2",
+    "e3nn>=0.4.4,<0.6",
+    "mace-torch>=0.3.16,<0.4",
+    "numpy>=1.24",
+    "ase>=3.22",
+    "h5py>=3.8",
+]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]

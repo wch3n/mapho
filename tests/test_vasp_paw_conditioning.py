@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from e3nn import o3
+from mapho._e3nn import o3
 from mapho.vasp.paw_conditioning import (
     scalar_projection,
     overlap_coordinates,

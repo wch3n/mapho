@@ -5,8 +5,7 @@ import math
 
 import torch
 from torch import nn
-from e3nn import o3
-from e3nn.nn import NormActivation
+from ._e3nn import o3, NormActivation
 
 from .graph import Graph
 

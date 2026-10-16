@@ -6,7 +6,7 @@ from itertools import product
 import numpy as np
 from scipy.spatial import cKDTree
 import torch
-from e3nn import o3
+from ._e3nn import o3
 from torch.autograd.function import once_differentiable
 
 

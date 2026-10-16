@@ -60,8 +60,10 @@ archives, build output, and virtual environments.
 
 ## Run
 
-Python 3.10+, PyTorch, e3nn, ASE, NumPy, and h5py are required. Use a dedicated
-environment so this project's e3nn dependency does not affect other packages.
+Python 3.10+, PyTorch, MACE (`mace-torch`), e3nn, ASE, NumPy, and h5py are
+required and declared in `pyproject.toml`. The field and PAW models import the
+MACE backbone directly. Use a dedicated environment so dependency resolution
+does not affect other projects.
 
 ```bash
 python3 -m venv .venv
@@ -71,11 +73,21 @@ env -u PYTHONPATH .venv/bin/python -m mapho demo --output runs/example
 ```
 
 In the current workspace, `.venv` already exists and reuses the installed
-PyTorch through system site packages, with its own e3nn and pytest installation.
+PyTorch and MACE through system site packages, with its own e3nn and pytest
+installation.
 The shell's `PYTHONPATH` otherwise puts the user site packages ahead of this
 environment. `env -u PYTHONPATH` affects only the invoked command. No existing
-MACE packages were changed. The checked environment uses PyTorch 2.7.1 and e3nn
-0.5.9; this project does not require changing MACE's e3nn dependency.
+MACE packages were changed. The existing benchmark environment uses PyTorch
+2.7.1, MACE 0.3.16, and e3nn 0.5.9. MACE 0.3.16 declares `e3nn==0.4.4` in its
+[package requirements](https://github.com/ACEsuit/mace/blob/v0.3.16/setup.cfg).
+The MAPHO requirement permits that version so a fresh installation can satisfy
+both packages. Keep the recorded environment when reproducing existing
+checkpoints; the dependency declaration does not migrate trained models.
+For e3nn 0.4.4 with newer PyTorch, MAPHO permits the built-in `slice` type only
+while importing the bundled Wigner constants. It leaves the serialization
+defaults unchanged.
+The CPU suite has been checked with both e3nn 0.4.4 and 0.5.9 using MACE
+0.3.16 and PyTorch 2.7.1. GPU tests require a separate CUDA allocation.
 
 The demo writes `model.pt`, `metrics.json`, `history.json`, `runtime.json`,
 `split.json`, `heldout_sample.npz`, and `heldout_bands.npz`. Output directories
@@ -275,8 +287,9 @@ and `mapho-vasp` commands. VASP commands are grouped into `data`, `train`,
 
 The old `mlham` Python namespace and import aliases have been removed.
 Readers still accept stored data with the former schema prefix, and QE
-restart lookup reads the prefix from the saved input. The validated VASP
-file protocol retains `MLHAM_EXPORT`, `MLHAM_IMPORT`, and `MLHAM_PAW.dat`.
+restart lookup reads the prefix from the saved input. New VASP calculations use
+`MAPHO_EXPORT`, `MAPHO_IMPORT`, and `MAPHO_PAW.dat` with the matching private
+executable. Old studies require their saved executable and source snapshot.
 Historical runs, source snapshots, and hashes are preserved. The `runs`
 directory links to scratch. See the [package layout](docs/backends.md) and
 [migration notes](docs/renaming.md).

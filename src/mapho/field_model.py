@@ -12,7 +12,7 @@ from itertools import product
 import numpy as np
 import torch
 from torch import nn
-from e3nn import o3
+from ._e3nn import o3
 from ase import Atoms
 from scipy.signal import resample
 from torch.utils.checkpoint import checkpoint

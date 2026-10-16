@@ -9,7 +9,7 @@ from dataclasses import asdict
 import numpy as np
 import torch
 from torch import nn
-from e3nn import o3
+from .._e3nn import o3
 
 from ..field_model import FieldInputs, FieldModelConfig, LocalMACEField, mace_graph
 from ..exchange_ablation import ControlledCorrection

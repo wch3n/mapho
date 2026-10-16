@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 import torch
 from ase.build import bulk
-from e3nn import o3
+from mapho._e3nn import o3
 
 from mapho.field_model import FieldModelConfig, mace_graph, probe_basis
 from mapho.vasp.model import (

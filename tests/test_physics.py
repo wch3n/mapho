@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import torch
 from ase import Atoms
-from e3nn import o3
+from mapho._e3nn import o3
 
 from mapho.bands import band_energies, bloch_matrix
 from mapho.graph import make_graph, batch_graphs, reverse_indices
