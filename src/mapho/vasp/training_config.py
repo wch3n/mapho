@@ -103,6 +103,7 @@ def model_settings(options=None, *, grid_size=32, grid_shape=None):
     for key in (
         "channels",
         "correlation",
+        "num_interactions",
         "fno_width",
         "fno_layers",
         "probe_chunk_size",

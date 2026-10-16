@@ -36,6 +36,7 @@ mode: full
 correction_activation: gelu
 model:
   channels: 8
+  num_interactions: 2
   grid_shape: [32, 32, 32]
   fno_width: 8
   fno_layers: 2
@@ -71,7 +72,21 @@ invalid values, and unsupported targets fail before run creation.
 (default 32), `probe_chunk_size` (8192), `probe_edge_chunk_size` (32768), and
 `spectral_chunk_size` (256). A supplied `grid_shape` takes precedence over
 `grid_size`. Atomic species and PAW channels are inferred from the data.
-The MACE backbone retains two interaction layers.
+`model.num_interactions` sets the number of MACE message-passing layers
+(positive integer, default 2). It is saved in the manifest and checkpoint
+and used to reconstruct the backbone at inference. Checkpoints made before
+this setting was introduced retain two layers. Changing the depth requires
+a new training run; it does not change the depth of an existing checkpoint.
+
+The local message-passing and probe path has a maximum reach of
+`num_interactions * atom_cutoff + probe_cutoff`. With the default cutoffs,
+two layers give 12 angstroms and three give 16.5 angstroms. This describes
+the local path, not the whole model: the averaged scalar offset and the
+FNO involve whole-cell information. `lmax` controls angular resolution,
+while `fno_layers` independently controls the depth of the Fourier correction.
+With one interaction, the current MACE backbone exposes only scalar
+features; at least two are needed to retain nonscalar features for the
+angular decoder and PAW heads.
 
 ### Dataset and atomic-reference layout
 

@@ -80,6 +80,7 @@ class FieldModelConfig:
     radial_count: int = 12
     lmax: int = 2
     correlation: int = 3
+    num_interactions: int = 2
     grid_size: int = 16
     grid_shape: tuple | None = None
     fno_width: int = 8
@@ -90,6 +91,12 @@ class FieldModelConfig:
     spectral_chunk_size: int = 256
 
     def validate(self):
+        if (
+            isinstance(self.num_interactions, bool)
+            or not isinstance(self.num_interactions, int)
+            or self.num_interactions < 1
+        ):
+            raise ValueError("num_interactions must be a positive integer")
         if self.grid_shape is not None and (
             len(self.grid_shape) != 3
             or any(int(n) != n or n < 4 for n in self.grid_shape)
@@ -221,7 +228,7 @@ class LocalMACEField(nn.Module):
             max_ell=c.lmax,
             interaction_cls=RealAgnosticResidualInteractionBlock,
             interaction_cls_first=RealAgnosticInteractionBlock,
-            num_interactions=2,
+            num_interactions=c.num_interactions,
             num_elements=len(c.atomic_numbers),
             hidden_irreps=hidden,
             MLP_irreps=o3.Irreps(f"{c.channels}x0e"),

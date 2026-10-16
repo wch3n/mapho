@@ -12,6 +12,7 @@ model:
   radial_count: 12
   lmax: 2
   correlation: 3
+  num_interactions: 2
   grid_shape: [32, 32, 32]
   fno_width: 8
   fno_layers: 2

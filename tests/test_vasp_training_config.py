@@ -57,6 +57,7 @@ def test_paths_defaults_and_cli_overrides_without_dataset_access(
     assert resolved["atomic_reference"] == str(config_dir / "data/atomic")
     assert resolved["output"] == str(tmp_path / "cli_output")
     assert resolved["source_config_sha256"] == sha(path)
+    assert resolved["model"]["num_interactions"] == 2
     assert not (tmp_path / "cli_output").exists()
     assert not (config_dir / "data").exists()
 
@@ -74,6 +75,10 @@ def test_paths_defaults_and_cli_overrides_without_dataset_access(
         {"training": {"scheduler_factor": 1}},
         {"model": {"atomic_numbers": [14]}},
         {"model": {"channels": 1.5}},
+        {"model": {"num_interactions": 0}},
+        {"model": {"num_interactions": -1}},
+        {"model": {"num_interactions": True}},
+        {"model": {"num_interactions": 2.5}},
         {"model": {"grid_shape": [4, 4]}},
         {"model": {"probe_cutoff": float("inf")}},
         {"model": {"lmax": 3}},
@@ -169,8 +174,10 @@ def synthetic_dataset(root):
     )
 
 
-@pytest.mark.parametrize("mode", ["local", "full"])
-def test_yaml_runs_actual_training_and_preserves_effective_settings(tmp_path, mode):
+@pytest.mark.parametrize("mode,num_interactions", [("local", 1), ("full", 3)])
+def test_yaml_runs_actual_training_and_preserves_effective_settings(
+    tmp_path, mode, num_interactions
+):
     synthetic_dataset(tmp_path / "data")
     path = recipe(
         tmp_path / "train.yaml",
@@ -179,6 +186,7 @@ def test_yaml_runs_actual_training_and_preserves_effective_settings(tmp_path, mo
             channels=2,
             lmax=1,
             correlation=1,
+            num_interactions=num_interactions,
             radial_count=2,
             grid_size=8,
             grid_shape=[4, 4, 6],
@@ -209,6 +217,8 @@ def test_yaml_runs_actual_training_and_preserves_effective_settings(tmp_path, mo
     assert (root / "config.input.yaml").read_bytes() == path.read_bytes()
     assert resolved["training"]["epochs"] == manifest["training"]["epochs"] == 2
     assert manifest["config"]["channels"] == 2
+    assert manifest["config"]["num_interactions"] == num_interactions
+    assert resolved["model"]["num_interactions"] == num_interactions
     assert manifest["config"]["grid_shape"] == [4, 4, 6]
     with np.load(root / "cache/sample_000.npz") as cache:
         assert cache["baseline"].shape == (4, 4, 6)
@@ -223,7 +233,9 @@ def test_yaml_runs_actual_training_and_preserves_effective_settings(tmp_path, mo
     checkpoint = torch.load(root / mode / "model.pt", weights_only=False)
     assert checkpoint["training_options"] == report["training_options"]
     assert checkpoint["description"]["correction_activation"] == "gelu"
+    assert checkpoint["description"]["config"]["num_interactions"] == num_interactions
     model = training.load_model(root, mode, "cpu")
+    assert len(model.local.backbone.interactions) == num_interactions
     field, d = training.predict(model, manifest["entries"]["test"][0], "cpu")
     assert field.shape == (4, 4, 6) and np.isfinite(d).all()
     assert (root / mode / "test_fields.json").is_file()

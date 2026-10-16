@@ -13,6 +13,7 @@ model:
   channels: 8
   lmax: 2
   correlation: 3
+  num_interactions: 2            # Number of MACE message-passing layers.
   radial_count: 12
   grid_shape: [32, 32, 32]        # Use a rectangular grid for anisotropic cells.
   fno_width: 8                   # Hidden channels per grid point/Fourier mode.

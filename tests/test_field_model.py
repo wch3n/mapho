@@ -168,8 +168,10 @@ def test_label_independent_inputs_and_checkpoint_reload(model, tmp_path):
     assert state["schema"] == "mapho.field_model.v1"
     # Historical checkpoints retain their old tag but must give identical fields.
     state["schema"] = "mlham.field_model.v1"
+    del state["config"]["num_interactions"]
     torch.save(state, tmp_path / "legacy.pt")
     old_local, old_fno, _ = load_field_models(tmp_path / "legacy.pt")
+    assert len(old_local.backbone.interactions) == 2
     np.testing.assert_array_equal(predict_fields(old_local, old_fno, i), a)
     local, fno, metadata = load_field_models(tmp_path / "model.pt")
     np.testing.assert_array_equal(predict_fields(local, fno, i), a)
@@ -183,6 +185,12 @@ def test_unknown_species_and_bad_config_rejected(model):
         mace_graph(i, model.config)
     with pytest.raises(ValueError):
         FieldModelConfig(lmax=5).validate()
+
+
+@pytest.mark.parametrize("depth", [0, -1, True, 2.5, "2"])
+def test_invalid_interaction_depth_rejected(depth):
+    with pytest.raises(ValueError, match="num_interactions"):
+        LocalMACEField(FieldModelConfig(num_interactions=depth))
 
 
 def test_band_metrics_preserve_absolute_offset():
