@@ -7,6 +7,53 @@ a scalar potential does not by itself supply that orbital-dependent operator.
 The existing QE exchange-gate experiments are a separate implementation; their
 norm-conserving exchange action cannot be inserted unchanged into a PAW model.
 
+## Conditional learning with reference exchange
+
+The next Si experiment trains the present MAPHO-MACE and MAPHO-FNO smooth
+potential and PAW D heads jointly, with GELU for the correction. Its band
+calculation supplies the independently constructed ACE operator from the
+PBE0 reference at each geometry. This isolates the accuracy of the learned
+local/PAW terms. It does not establish structure-only hybrid inference or
+exchange prediction.
+
+Training is gated by native k-point convergence. The calibration compares
+4x4x4, 6x6x6, and 8x8x8 Gamma-centered meshes for equilibrium, compressed,
+and expanded/displaced primitive Si. Each full PBE0 SCF starts from a same-mesh
+PBE calculation and must pass frozen-operator replay. The finest adjacent
+pair must meet all four tolerances on all three geometries: 1 meV/atom total
+energy, 5 meV maximum frontier difference at the eight common half-grid k
+points, 5 meV mean-aligned potential RMSE, and 5 meV gauge-consistent D RMSE.
+Changing sampled gap extrema alone does not measure mesh convergence.
+
+After that gate passes, the workflow prepares 24 independent strained and
+displaced primitive cells, split into 16 training, four validation, and four
+test structures. Model inputs use a separate PBE atomic-density calculation
+with `ICHARG=12`, without converged electronic input files. Target components
+must be explicitly paired with their reference ACE archive, with file hashes
+checked before training and replay. The intended comparison is conditional
+PBE0 eigenvalues at the sampled mesh; arbitrary-k hybrid bands require an
+additional treatment of exchange.
+
+The grouped commands are:
+
+```text
+mapho-vasp validate pbe0-convergence prepare ROOT POTCAR EXECUTABLE
+mapho-vasp validate pbe0-convergence worker ROOT INDEX
+mapho-vasp validate pbe0-convergence collect ROOT
+mapho-vasp train pbe0-heads prepare-dataset DATASET CALIBRATION
+mapho-vasp train pbe0-heads worker DATASET INDEX
+mapho-vasp train pbe0-heads prepare-training TRAINING DATASET
+mapho-vasp train pbe0-heads fit TRAINING local
+mapho-vasp train pbe0-heads fit TRAINING full
+mapho-vasp train pbe0-heads evaluate-bands TRAINING local
+mapho-vasp train pbe0-heads evaluate-bands TRAINING full
+```
+
+`local` denotes MAPHO-MACE and `full` denotes MAPHO-FNO. The convergence
+collector returns a missing selected mesh when the gate fails; dataset
+generation then refuses to proceed. No accuracy result is implied by having
+this workflow available.
+
 ## First test
 
 `runs/vasp_si_pbe0_components_v2` contains a primitive-Si diagnostic, submitted

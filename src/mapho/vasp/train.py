@@ -47,7 +47,63 @@ def onsite_mse(prediction, item):
     return squared[item["d_mask"]].mean() if "d_mask" in item else squared.mean()
 
 
-def prepare(dataset, atomic, output, grid_size=32, point_count=8192, grid_shape=None):
+def target_contract(target, baseline, target_path, dataset, manifest, target_kind):
+    """Require an explicit conditional target and the matching reference exchange."""
+    if canonical_schema(baseline.attrs["schema"]) != "mapho.vasp_paw_operator.v1":
+        raise ValueError("Expected a scalar PBE atomic baseline")
+    schema = canonical_schema(target.attrs["schema"])
+    if target_kind == "pbe":
+        if schema != "mapho.vasp_paw_operator.v1":
+            raise ValueError("Expected scalar PBE PAW operator schemas")
+        return {}
+    if target_kind != "pbe0_components":
+        raise ValueError("Target kind must be pbe or pbe0_components")
+    from .ace import SCHEMA as ACE_SCHEMA, _require_pbe0
+    from .paw import COMPONENT_SCHEMA
+
+    if schema != COMPONENT_SCHEMA:
+        raise ValueError(
+            "Conditional PBE0 training requires explicitly marked components"
+        )
+    relative = target_path.relative_to(dataset).as_posix()
+    paired = manifest.get("hybrid_operators", {}).get(relative)
+    if paired is None:
+        raise ValueError("A paired reference exchange archive is required")
+    operator = dataset / paired
+    with h5py.File(operator) as archive:
+        if archive.attrs["schema"] != ACE_SCHEMA:
+            raise ValueError("A complete reference PAW+ACE archive is required")
+        meta = json.loads(archive.attrs["metadata_json"])
+    _require_pbe0(meta["reference_manifest"]["settings"])
+    if Path(meta["components"]).resolve() != target_path.resolve() or meta[
+        "components_sha256"
+    ] != sha(target_path):
+        raise ValueError("Reference exchange belongs to different component targets")
+    if sha(meta["ace_file"]) != meta["ace_sha256"]:
+        raise ValueError("Reference exchange changed")
+    return dict(
+        reference_exchange_operator=str(operator),
+        reference_exchange_operator_sha256=sha(operator),
+    )
+
+
+def prepare(
+    dataset,
+    atomic,
+    output,
+    grid_size=32,
+    point_count=8192,
+    grid_shape=None,
+    *,
+    target_kind="pbe",
+    correction_activation="silu",
+):
+
+    if target_kind not in ("pbe", "pbe0_components") or correction_activation not in (
+        "silu",
+        "gelu",
+    ):
+        raise ValueError("Unsupported target kind or activation")
     dataset, atomic, output = map(
         lambda x: Path(x).resolve(), (dataset, atomic, output)
     )
@@ -93,11 +149,9 @@ def prepare(dataset, atomic, output, grid_size=32, point_count=8192, grid_shape=
             with h5py.File(target) as t, h5py.File(baseline) as b:
                 meta = json.loads(b.attrs["metadata_json"])
                 assert meta["reference_manifest"]["settings"]["ICHARG"] == 12
-                if any(
-                    canonical_schema(f.attrs["schema"]) != "mapho.vasp_paw_operator.v1"
-                    for f in (t, b)
-                ):
-                    raise ValueError("Expected scalar PBE PAW operator schemas")
+                contract_metadata = target_contract(
+                    t, b, target, dataset, m, target_kind
+                )
                 for key in (
                     "cell_A",
                     "positions_A",
@@ -155,6 +209,7 @@ def prepare(dataset, atomic, output, grid_size=32, point_count=8192, grid_shape=
                     baseline_sha256=sha(baseline),
                     cache_sha256=sha(output / "cache" / f"{name}.npz"),
                     native_grid=list(delta.shape),
+                    **contract_metadata,
                 )
                 entries[split].append(entry)
                 if split == "train":
@@ -182,6 +237,12 @@ def prepare(dataset, atomic, output, grid_size=32, point_count=8192, grid_shape=
         schema="mapho.vasp_training.v1",
         dataset=str(dataset),
         atomic_reference=str(atomic),
+        target_kind=target_kind,
+        correction_activation=correction_activation,
+        conditional_reference_exchange=target_kind == "pbe0_components",
+        prediction_scope="Smooth potential and PAW D; reference ACE exchange required"
+        if target_kind == "pbe0_components"
+        else "PBE smooth potential and PAW D",
         config=asdict(config),
         entries=entries,
         point_count=point_count,
@@ -198,7 +259,9 @@ def prepare(dataset, atomic, output, grid_size=32, point_count=8192, grid_shape=
         native_point_loss=True,
         fno_interpolation="periodic trilinear, same at training and inference",
         seed=31,
-        modes=["local", "none", "full"],
+        modes=["local", "full"]
+        if target_kind == "pbe0_components"
+        else ["local", "none", "full"],
     )
     save_json(output / "manifest.json", metadata)
     return metadata

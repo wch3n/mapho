@@ -155,7 +155,31 @@ def _hybrid_pilot(argv=None):
     print(json.dumps(result, indent=2))
 
 
+def _pbe0_convergence(argv=None):
+    from ...experiments.vasp import pbe0_convergence as implementation
+
+    p = argparse.ArgumentParser(
+        prog="mapho-vasp validate pbe0-convergence", description=implementation.__doc__
+    )
+    sub = p.add_subparsers(dest="command", required=True)
+    s = sub.add_parser("prepare")
+    s.add_argument("root")
+    s.add_argument("potcar")
+    s.add_argument("executable")
+    s.add_argument("--meshes", nargs="+", type=int, default=[4, 6, 8])
+    s = sub.add_parser("worker")
+    s.add_argument("root")
+    s.add_argument("index", type=int)
+    s.add_argument("--timeout", type=int, default=162000)
+    s = sub.add_parser("collect")
+    s.add_argument("root")
+    args = vars(p.parse_args(argv))
+    command = args.pop("command")
+    print(json.dumps(getattr(implementation, command)(**args), indent=2))
+
+
 COMMANDS = {
+    "pbe0-convergence": _pbe0_convergence,
     "paw": _paw_validation,
     "spin": _spin_validation,
     "training": _training_validation,

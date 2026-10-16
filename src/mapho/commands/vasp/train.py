@@ -175,7 +175,38 @@ def _activation_ablation(argv=None):
         implementation.execute(a.root)
 
 
+def _pbe0_heads(argv=None):
+    from ...experiments.vasp import pbe0_learning as implementation
+
+    p = argparse.ArgumentParser(
+        prog="mapho-vasp train pbe0-heads", description=implementation.__doc__
+    )
+    sub = p.add_subparsers(dest="command", required=True)
+    s = sub.add_parser("prepare-dataset")
+    s.add_argument("root")
+    s.add_argument("calibration")
+    s.add_argument("--count", type=int, default=24)
+    s = sub.add_parser("worker")
+    s.add_argument("root")
+    s.add_argument("index", type=int)
+    s = sub.add_parser("audit")
+    s.add_argument("root")
+    s = sub.add_parser("prepare-training")
+    s.add_argument("root")
+    s.add_argument("dataset")
+    for name in ("fit", "evaluate-bands"):
+        s = sub.add_parser(name)
+        s.add_argument("root")
+        s.add_argument("mode", choices=["local", "full"])
+        if name == "fit":
+            s.add_argument("--epochs", type=int, default=300)
+    args = vars(p.parse_args(argv))
+    command = args.pop("command").replace("-", "_")
+    return getattr(implementation, command)(**args)
+
+
 COMMANDS = {
+    "pbe0-heads": _pbe0_heads,
     "model": _train,
     "material": _material_training,
     "paw-repair": _paw_repair,
