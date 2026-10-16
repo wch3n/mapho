@@ -1,5 +1,8 @@
 # Training from YAML
 
+The [Si tutorial](../tutorial.md) connects data preparation, YAML training,
+and band inference. See [usage](../usage.md) for installation and commands.
+
 The VASP PAW trainer accepts a YAML recipe in addition to the existing
 `train model` and `train pbe0-heads` commands. It supports the scalar PBE model
 and the conditional PBE0 local/PAW model. The QE workflows and the PAW repair

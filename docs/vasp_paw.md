@@ -30,15 +30,12 @@ other projector angular momenta are not yet supported by that head.
 
 The local VASP 6.6.1 GPU build has no HDF5 support. A small opt-in bridge is
 compiled in an isolated scratch copy; the installed executable stays unchanged.
-Only mapho's new bridge and an anchor-checked patching script are distributed
-here. VASP source, executables, and POTCAR files remain private local inputs.
-
-`python -m mapho.vasp.vasp_patch PRIVATE_BUILD_DIRECTORY` modifies `pot.F` and
-`main.F`, adds `vasp_bridge.F.inc`, and records before/after SHA256 hashes.
-It refuses already-patched or incompatible source anchors. This bridge has
-only been targeted at 6.6.1; its anchors are not a compatibility promise for
-other versions. Recompile `pot.o`, `main.o`, and the dependent objects/link
-using that build's original compiler and MPI configuration.
+The patch scripts and Fortran bridge includes are private integration files
+and are not distributed in this repository. VASP source, executables, and
+POTCAR files also remain private local inputs. The public Python interface
+requires an executable with the corresponding export/import capabilities.
+See the [VASP directory README](../src/mapho/vasp/README.md) for this
+separation. The local interface has been tested with VASP 6.6.1.
 
 - `MAPHO_EXPORT` in a calculation directory enables native `POT` output and
   full-precision `MAPHO_PAW.dat` D/Q output.

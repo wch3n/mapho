@@ -1,9 +1,12 @@
-include README.md pyproject.toml setup.py MANIFEST.in
+include README.md usage.md tutorial.md pyproject.toml setup.py MANIFEST.in
 include docs/ace_operator.md docs/releasing.md
 include docs/vasp_exchange.md docs/vasp_pbe0.md
 include docs/renaming.md docs/backends.md
 include docs/training.md
+include docs/orbital_baseline.md docs/qe.md docs/field_learning.md
+include src/mapho/vasp/README.md
 recursive-include examples/training *.yaml
+recursive-include examples/vasp *.py
 include tools/check_release.py
 recursive-include tests *.py
 global-exclude vasp*_patch.py *_bridge.F.inc

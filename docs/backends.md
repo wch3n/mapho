@@ -1,5 +1,9 @@
 # Package layout and commands
 
+Start with [usage](../usage.md) for commands or the [Si tutorial](../tutorial.md)
+for a complete calculation. The [VASP directory README](../src/mapho/vasp/README.md)
+describes the private integration files required by that backend.
+
 Reusable VASP code lives in `mapho.vasp`. Argument parsing is grouped by task
 in `mapho.commands.vasp`. Research protocols and material-specific benchmarks
 live in `mapho.experiments.vasp`; they are not a stable application API.
