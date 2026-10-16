@@ -522,6 +522,13 @@ def run(folder, executable, launcher=(), timeout=1500):
     if (folder / "run.json").exists():
         raise FileExistsError("Use a fresh run directory")
     m = json.loads((folder / "manifest.json").read_text())
+    atomic_only = m.get("atomic_export_only", False)
+    if atomic_only:
+        from .atomic import validate_request
+
+        validate_request(folder, m)
+    elif (folder / "MAPHO_ATOMIC_EXPORT").exists():
+        raise ValueError("Atomic export marker requires an export-only manifest")
     for name, expected in m["inputs"].items():
         if sha(folder / name) != expected:
             raise ValueError(f"Input changed since preparation: {name}")
@@ -548,7 +555,7 @@ def run(folder, executable, launcher=(), timeout=1500):
         outcar = (folder / "OUTCAR").read_text() if (folder / "OUTCAR").exists() else ""
         if cp.returncode or "General timing and accounting" not in outcar:
             raise RuntimeError(f"VASP did not finish successfully: {folder}")
-        if "aborting loop because EDIFF is reached" not in outcar:
+        if not atomic_only and "aborting loop because EDIFF is reached" not in outcar:
             raise RuntimeError(f"Electronic convergence not certified: {folder}")
         marker = (
             "full PAW D imported; native Q verified"
@@ -559,7 +566,17 @@ def run(folder, executable, launcher=(), timeout=1500):
             raise RuntimeError(
                 "VASP bridge marker missing; check executable and sentinels"
             )
-        read_bands(folder)
+        if atomic_only:
+            from .atomic import validate_result
+
+            result.update(
+                atomic_export_only=True,
+                diagonalized=False,
+                electronic_steps=0,
+                output_sha256=validate_result(folder),
+            )
+        else:
+            read_bands(folder)
         result["status"] = "complete"
     except Exception as exc:
         result.update(status="failed", error=repr(exc))
@@ -596,7 +613,15 @@ def export_operator(folder, output, *, components_only=False):
         raise ValueError("components_only is reserved for incomplete hybrid exports")
     status = json.loads((folder / "run.json").read_text())
     if status["status"] != "complete" or m.get("replay") or m.get("unpatched_control"):
-        raise ValueError("Export requires a completed reference SCF with the bridge")
+        raise ValueError("Export requires a completed native reference with the bridge")
+    atomic_only = m.get("atomic_export_only", False)
+    if atomic_only:
+        from .atomic import validate_result
+
+        if hybrid or status.get("atomic_export_only") is not True:
+            raise ValueError("Invalid export-only atomic reference status")
+        if validate_result(folder) != status.get("output_sha256"):
+            raise ValueError("Atomic export outputs changed after completion")
     for name, expected in m["inputs"].items():
         if sha(folder / name) != expected:
             raise ValueError(f"Reference input changed: {name}")
@@ -615,14 +640,14 @@ def export_operator(folder, output, *, components_only=False):
     paw = read_paw(
         folder / "MAPHO_PAW.dat", d_symmetry_tolerance_eV=1e-6 if hybrid else 1e-10
     )
-    bands = read_bands(folder)
+    bands = None if atomic_only else read_bands(folder)
     if len(paw["types"]) != len(atoms):
         raise ValueError("PAW atom count differs")
     nspin = m["settings"]["ISPIN"]
     if (
         (1 if field.ndim == 3 else field.shape[0]) != nspin
         or (1 if paw["d"].ndim == 3 else paw["d"].shape[0]) != nspin
-        or bands["nspin"] != nspin
+        or (bands is not None and bands["nspin"] != nspin)
     ):
         raise ValueError("Potential, D, bands, and input spin counts disagree")
     schema = COMPONENT_SCHEMA if hybrid else SCHEMA if nspin == 1 else SPIN_SCHEMA
@@ -635,13 +660,25 @@ def export_operator(folder, output, *, components_only=False):
         spin_channels=["scalar"] if nspin == 1 else ["up", "down"],
         source_sha256={
             n: sha(folder / n)
-            for n in ("POT", "MAPHO_PAW.dat", "vasprun.xml", "EIGENVAL", "OUTCAR")
+            for n in (
+                (
+                    "POT",
+                    "MAPHO_PAW.dat",
+                    "vasprun.xml",
+                    "MAPHO_ATOMIC_DONE.json",
+                    "OUTCAR",
+                )
+                if atomic_only
+                else ("POT", "MAPHO_PAW.dat", "vasprun.xml", "EIGENVAL", "OUTCAR")
+            )
         },
         field_units="eV",
         grid_axes="xyz, fractional coordinates i/n",
         on_site_basis="native VASP projector order; radial channel then native real spherical harmonics",
         gauge="native exported total-potential gauge; D and potential must be changed consistently",
     )
+    if atomic_only:
+        metadata.update(atomic_export_only=True, diagonalized=False, electronic_steps=0)
     if hybrid:
         metadata.update(
             complete_hamiltonian=False,
@@ -662,7 +699,7 @@ def export_operator(folder, output, *, components_only=False):
         f.create_dataset("cell_A", data=np.asarray(atoms.cell))
         f.create_dataset("positions_A", data=atoms.positions)
         f.create_dataset("atomic_numbers", data=atoms.numbers)
-        for key, value in bands.items():
+        for key, value in (bands or {}).items():
             f.create_dataset("bands/" + key, data=value)
         f.create_dataset("native_pot_header", data=header)
         if nspin == 1:

@@ -71,6 +71,20 @@ VASP outputs. The [tutorial](tutorial.md#1-data-preparation) describes the
 complete Si workflow. The same atomic-reference commands apply to the LiF
 and MoS2 PBE datasets.
 
+Atomic references can be exported before diagonalization with
+`data atomic-reference prepare DATASET ROOT --export-only --executable VASP`.
+The executable must include the private atomic export hook. The current
+implementation supports nonmagnetic PBE with one MPI rank. See the
+[atomic-reference instructions](tutorial.md#atomic-references) and the
+[inference API](tutorial.md#inference-api). The model and final band solve
+continue to run as separate stages.
+
+For a new private build, `validate atomic-reference ROOT --reference
+Si=REFERENCE_DIRECTORY --executable VASP` compares the exported operator
+with an ordinary `ICHARG=12` calculation and checks its native replay.
+Each reference directory must contain the prepared metadata and an
+`operator.h5` file. Repeat `--reference LABEL=DIRECTORY` for other cases.
+
 Execution commands run within an existing scheduler allocation. They do not
 submit jobs. The current dataset drivers use one MPI rank per VASP process
 and distribute independent structures across the visible GPUs. Use A100

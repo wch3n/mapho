@@ -26,11 +26,18 @@ from ...vasp.paw import (
 )
 
 
-def prepare(dataset, root):
+def prepare(dataset, root, *, export_only=False, executable=None):
     dataset, root = Path(dataset).resolve(), Path(root).resolve()
     m = json.loads((dataset / "manifest.json").read_text())
     if not json.loads((dataset / "completion.json").read_text())["complete"]:
         raise ValueError("Incomplete reference dataset")
+    executable_override = executable is not None
+    executable = Path(executable or m["executable"]).resolve()
+    if not executable.is_file():
+        raise FileNotFoundError(executable)
+    executable_hash = sha(executable)
+    if not executable_override and executable_hash != m["executable_sha256"]:
+        raise ValueError("The recorded VASP executable changed")
     root.mkdir(parents=True, exist_ok=False)
     (root / "logs").mkdir()
     cases = []
@@ -74,6 +81,10 @@ def prepare(dataset, root):
                 n: sha(folder / n) for n in ("POSCAR", "POTCAR", "INCAR", "KPOINTS")
             },
         )
+        if export_only:
+            from ...vasp.atomic import enable_export_only
+
+            enable_export_only(folder, manifest)
         save_json(folder / "manifest.json", manifest)
         cases.append(
             dict(
@@ -87,8 +98,9 @@ def prepare(dataset, root):
         dataset=str(dataset),
         dataset_manifest_sha256=sha(dataset / "manifest.json"),
         cases=cases,
-        executable=m["executable"],
-        executable_sha256=m["executable_sha256"],
+        executable=str(executable),
+        executable_sha256=executable_hash,
+        atomic_export_only=export_only,
     )
     save_json(root / "manifest.json", result)
     return result
@@ -129,6 +141,7 @@ def worker(root, index):
         operator_sha256=sha(folder / "operator.h5"),
         icharg=12,
         target_electronic_files_read=False,
+        atomic_export_only=m.get("atomic_export_only", False),
         gpu=os.environ.get("CUDA_VISIBLE_DEVICES"),
     )
     save_json(folder / "complete.json", result)

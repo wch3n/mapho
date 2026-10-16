@@ -16,6 +16,14 @@ def _atomic_reference(argv=None):
     q = sub.add_parser("prepare")
     q.add_argument("dataset")
     q.add_argument("root")
+    q.add_argument(
+        "--export-only",
+        action="store_true",
+        help="Export the atomic operator before diagonalization (requires the private atomic hook)",
+    )
+    q.add_argument(
+        "--executable", help="MAPHO-enabled VASP executable for the atomic references"
+    )
     q = sub.add_parser("execute")
     q.add_argument("root")
     q = sub.add_parser("worker")
@@ -23,7 +31,9 @@ def _atomic_reference(argv=None):
     q.add_argument("index", type=int)
     a = p.parse_args(argv)
     if a.command == "prepare":
-        implementation.prepare(a.dataset, a.root)
+        implementation.prepare(
+            a.dataset, a.root, export_only=a.export_only, executable=a.executable
+        )
     elif a.command == "worker":
         implementation.worker(a.root, a.index)
     else:

@@ -157,6 +157,9 @@ def execute(args):
     executable = Path(dataset["executable"])
     if sha(executable) != dataset["executable_sha256"]:
         raise ValueError("The recorded VASP executable changed")
+    atomic_executable = (args.atomic_executable or executable).resolve()
+    if not atomic_executable.is_file():
+        raise FileNotFoundError(atomic_executable)
     entry = manifest["entries"]["train"][0]
     baseline = Path(entry["baseline"])
     if sha(baseline) != entry["baseline_sha256"]:
@@ -181,6 +184,9 @@ def execute(args):
             mode=args.mode,
             executable=str(executable),
             executable_sha256=sha(executable),
+            atomic_export_only=args.atomic_export_only,
+            atomic_executable=str(atomic_executable),
+            atomic_executable_sha256=sha(atomic_executable),
             potcar_sha256=sha(potcar),
             example_sha256=sha(__file__),
             lattice_constant_A=5.43,
@@ -193,7 +199,11 @@ def execute(args):
     prepare_case(
         atomic, atoms, potcar, native["settings"]["ENCUT"], (1, 1, 1), atomic=True
     )
-    run(atomic, executable, launcher=launcher, timeout=3600)
+    if args.atomic_export_only:
+        from mapho.vasp.atomic import enable_export_only
+
+        enable_export_only(atomic, read_json(atomic / "manifest.json"))
+    run(atomic, atomic_executable, launcher=launcher, timeout=3600)
     export_operator(atomic, atomic / "operator.h5")
     with h5py.File(atomic / "operator.h5") as archive:
         shape = archive["potential_eV"].shape
@@ -270,6 +280,12 @@ def main(argv=None):
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--meshes", nargs=2, type=int, default=[14, 16])
     parser.add_argument("--launcher", default=shlex.join(LAUNCHER))
+    parser.add_argument("--atomic-export-only", action="store_true")
+    parser.add_argument(
+        "--atomic-executable",
+        type=Path,
+        help="Executable for the atomic reference only",
+    )
     args = parser.parse_args(argv)
     if not 1 <= args.meshes[0] < args.meshes[1]:
         parser.error("--meshes requires two increasing positive integers")

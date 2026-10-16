@@ -21,6 +21,15 @@ MAPHO-enabled executable must provide:
 - `MAPHO_IMPORT`: read the supplied potential and PAW D matrices while
   verifying the native overlap data during frozen-operator calculations.
 
+The optional private atomic export hook also recognizes
+`MAPHO_ATOMIC_EXPORT`, used together with `MAPHO_EXPORT` and `ICHARG=12`.
+It constructs the potential and PAW matrices from the atomic density and
+exits before electronic optimization. `MAPHO_ATOMIC_DONE.json` certifies
+completion. The public `atomic.py` module prepares this request and
+validates the result. It does not contain the native patch. This mode
+currently supports nonmagnetic PBE and one MPI rank. It is separate from
+the `MAPHO_IMPORT` path used for final diagonalization.
+
 The experimental hybrid workflow needs additional private exchange
 integration. It is separate from the PBE interface and from the independent
 public Python implementation of ACE.

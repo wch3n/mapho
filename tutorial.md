@@ -134,6 +134,30 @@ PAW occupancies. These are separate calculations, not copies of the
 converged target potential. The execution command also requires a GPU
 allocation and writes `atomic/completion.json` when all cases finish.
 
+With a private executable that includes the atomic export hook, the same
+references can be constructed without diagonalization:
+
+```bash
+mapho_cmd data atomic-reference prepare "$MAPHO_DATASET" "$MAPHO_ATOMIC" \
+  --export-only --executable "$MAPHO_ATOMIC_VASP"
+mapho_cmd data atomic-reference execute "$MAPHO_ATOMIC"
+```
+
+Set `MAPHO_ATOMIC_VASP` to the validated executable with this hook, and use
+a new output directory. The hook evaluates the potential and PAW matrices
+at the fixed atomic density, exports them, and exits before electronic
+optimization. `MAPHO_ATOMIC_DONE.json` records successful export. The
+Python interface also checks that the native XML contains no electronic
+iterations or eigenvalues. The resulting `operator.h5` has the same
+potential and PAW datasets as the ordinary reference, with no `bands`
+group. Training and prediction do not require the eigenvalues of the
+atomic reference.
+
+This option currently supports nonmagnetic PBE with one MPI rank,
+`ISTART=0`, `NSW=0`, and `LREAL=False`. It requires a separate private
+patch in addition to the ordinary export/import interface. Without
+`--export-only`, the existing diagonalized reference workflow is used.
+
 The resulting training inputs have the following layout:
 
 ```text
@@ -263,6 +287,13 @@ workflow. `--launcher 'srun -n 1'` can replace it on a system configured for
 that launcher. `--device cpu` changes the device used by the ML model, not
 the executable used by VASP.
 
+To construct the atomic reference without diagonalization, add
+`--atomic-export-only --atomic-executable "$MAPHO_ATOMIC_VASP"` to the
+example command. This executable is used only for the atomic reference.
+The independent PBE references and final band solves use the executable
+recorded in the training provenance. Atomic export, Python prediction,
+and VASP diagonalization remain separate stages.
+
 The calculation sequence is:
 
 1. Construct an atomic reference for the primitive geometry with `ICHARG=12`.
@@ -285,6 +316,26 @@ default primitive meshes must pass these checks in the actual calculation.
 `--meshes 16 18` requests another increasing pair in a new output directory.
 
 ### Inference API
+
+For a new geometry, prepare and export the atomic operator first:
+
+```python
+from mapho.vasp.atomic import prepare_atomic_reference
+from mapho.vasp.paw import export_operator, run
+
+prepare_atomic_reference(
+    atomic_directory, atoms, potcars, encut=600, nbands=8, export_only=True
+)
+run(atomic_directory, atomic_executable, launcher=launcher)
+export_operator(atomic_directory, atomic_h5)
+```
+
+Here, `atoms` is a periodic ASE structure, `potcars` maps each element to
+its licensed PAW dataset, and `launcher` is a list such as `["mpirun",
+"-np", "1"]`. Use the PAW datasets and numerical settings of the training
+data. The executable must include the private atomic export hook. The
+native initialization still allocates wavefunctions, even though it does
+not diagonalize the atomic Hamiltonian.
 
 The essential prediction step is:
 

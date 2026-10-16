@@ -7,6 +7,25 @@ import json
 from . import dispatch
 
 
+def _atomic_reference(argv=None):
+    from ...experiments.vasp.atomic_validation import validate
+
+    parser = argparse.ArgumentParser(prog="mapho-vasp validate atomic-reference")
+    parser.add_argument("root")
+    parser.add_argument(
+        "--reference", action="append", required=True, metavar="LABEL=DIRECTORY"
+    )
+    parser.add_argument("--executable", required=True)
+    args = parser.parse_args(argv)
+    references = {}
+    for value in args.reference:
+        label, separator, path = value.partition("=")
+        if not separator or not label or not path or label in references:
+            parser.error("Each --reference must have a unique LABEL=DIRECTORY")
+        references[label] = path
+    print(json.dumps(validate(args.root, references, args.executable), indent=2))
+
+
 def _paw_validation(argv=None):
     from ...experiments.vasp import paw_validation as implementation
 
@@ -179,6 +198,7 @@ def _pbe0_convergence(argv=None):
 
 
 COMMANDS = {
+    "atomic-reference": _atomic_reference,
     "pbe0-convergence": _pbe0_convergence,
     "paw": _paw_validation,
     "spin": _spin_validation,

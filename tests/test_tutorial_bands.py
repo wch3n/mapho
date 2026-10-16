@@ -66,7 +66,20 @@ def tutorial(tmp_path, monkeypatch):
         write(folder / "POSCAR", atoms, format="vasp", direct=True, vasp5=True)
         (folder / "POTCAR").write_text("Synthetic PAW identity.")
         (folder / "KPOINTS").write_text("Synthetic mesh.")
-        return dict(settings=dict(ENCUT=encut, ICHARG=2, NBANDS=nbands))
+        (folder / "MAPHO_EXPORT").touch()
+        return dict(
+            settings=dict(
+                ENCUT=encut,
+                ICHARG=2,
+                NBANDS=nbands,
+                ISTART=0,
+                NSW=0,
+                ISPIN=1,
+                GGA="PE",
+                KPAR=1,
+                NCORE=1,
+            )
+        )
 
     def export(folder, output):
         native = example.read_json(folder / "manifest.json")
@@ -83,8 +96,9 @@ def tutorial(tmp_path, monkeypatch):
             f["paw/q"] = np.zeros((2, 8, 8))
             f["paw/types"] = [0, 0]
             f["paw"].attrs["channels_json"] = "[[0,0,1,1]]"
-            f["bands/eigenvalues_eV"] = levels[None]
-            f["bands/kpoints"] = [[0.0, 0.0, 0.0]]
+            if not native.get("atomic_export_only"):
+                f["bands/eigenvalues_eV"] = levels[None]
+                f["bands/kpoints"] = [[0.0, 0.0, 0.0]]
             f["native_pot_header"] = (folder / "POSCAR").read_text()
             f["native_pot_suffix"] = ""
 
@@ -124,13 +138,19 @@ def tutorial(tmp_path, monkeypatch):
         device="cpu",
         meshes=[14, 16],
         launcher="",
+        atomic_export_only=False,
+        atomic_executable=None,
     )
     return example, args, events
 
 
-def test_prediction_precedes_references_and_errors_preserve_energy_offset(tutorial):
+@pytest.mark.parametrize("export_only", [False, True])
+def test_prediction_precedes_references_and_errors_preserve_energy_offset(
+    tutorial, export_only
+):
     pytest.importorskip("matplotlib")
     example, args, events = tutorial
+    args.atomic_export_only = export_only
     metrics = example.execute(args)
     assert events == [
         "atomic",
@@ -152,6 +172,8 @@ def test_prediction_precedes_references_and_errors_preserve_energy_offset(tutori
     imported = example.read_json(args.output / "mapho_bands/manifest.json")
     assert imported["settings"]["ICHARG"] == 14
     assert Path(imported["operator"]).parent.name == "atomic"
+    with h5py.File(args.output / "atomic/operator.h5") as archive:
+        assert ("bands" not in archive) == export_only
 
 
 @pytest.mark.parametrize("gate", ["sampling", "replay"])

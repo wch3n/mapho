@@ -32,6 +32,8 @@ spec.loader.exec_module(checker)
         "mapho/vasp/vasp_ace_patch.py",
         "mapho/vasp/vasp_bridge.F.inc",
         "mapho/vasp/vasp_ace_bridge.F.inc",
+        "mapho/vasp/vasp_atomic_patch.py",
+        "mapho/vasp/vasp_atomic_bridge.F.inc",
         "release/runs/private/file.txt",
         "release/POTCAR",
         "release/POTCAR.Si",
@@ -117,6 +119,8 @@ def test_wheel_sdist_and_rebuilt_wheel_exclude_private_files(tmp_path):
         "vasp_ace_patch.py",
         "vasp_bridge.F.inc",
         "vasp_ace_bridge.F.inc",
+        "vasp_atomic_patch.py",
+        "vasp_atomic_bridge.F.inc",
     ]
     private += ["vasp/" + name for name in private]
     for name in private:
