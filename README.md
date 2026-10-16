@@ -9,6 +9,10 @@ couples the resulting fields across the periodic cell. The predicted operator
 is then diagonalized with the kinetic energy, projectors, and overlap of the
 DFT backend.
 
+MAPHO currently interfaces with [VASP](src/mapho/vasp/README.md) for PAW
+calculations and [Quantum ESPRESSO (QE)](docs/qe.md) for calculations with
+norm-conserving pseudopotentials.
+
 ## Contents
 
 - [Theory](#theory)
