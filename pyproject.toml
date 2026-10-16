@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mapho"
+version = "0.1.0"
+description = "MAPHO: Many-body Potential-based Hamiltonian Operator"
+requires-python = ">=3.10"
+dependencies = ["torch>=2.2", "e3nn>=0.5.1,<0.6", "numpy>=1.24", "ase>=3.22", "h5py>=3.8"]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+fields = ["scipy>=1.10"]
+references = ["pymatgen>=2025.1"]
+dev = ["ruff==0.16.5"]
+
+[project.scripts]
+mapho = "mapho.cli:main"
+mapho-qe = "mapho.qe:main"
+mapho-fields = "mapho.field_train:main"
+mapho-vasp-paw = "mapho.vasp.paw:main"
+
+# Compatibility commands for previously saved scripts.
+mlham = "mapho.cli:main"
+mlham-qe = "mapho.qe:main"
+mlham-fields = "mapho.field_train:main"
+mlham-vasp-paw = "mapho.vasp.paw:main"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+include = ["*.py", "*.pyi", "**/pyproject.toml"]
+target-version = "py310"
+line-length = 88
+force-exclude = true
+extend-exclude = [
+    "runs",
+    "build",
+    "dist",
+    "docs/archive",
+    "docs/build_mapho_report",
+    ".venv-qe",
+    "*.egg-info",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = false

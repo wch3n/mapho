@@ -1,0 +1,18 @@
+# Apply these exclusions to git archive as well as Python package builds.
+/src/mapho/**/vasp*_patch.py export-ignore
+/src/mapho/**/*_bridge.F.inc export-ignore
+/runs export-ignore
+/.venv export-ignore
+/.venv-qe export-ignore
+/build export-ignore
+/dist export-ignore
+/.pytest_cache export-ignore
+/docs/archive export-ignore
+/docs/build_mapho_report export-ignore
+
+# Preserve the recorded bytes of generated CSV evidence (including CRLF).
+/docs/source/data/*.csv -text whitespace=cr-at-eol
+
+/docs/source export-ignore
+/docs/MAPHO_report.pdf export-ignore
+/figure_preferences.json export-ignore

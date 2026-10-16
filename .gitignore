@@ -1,0 +1,46 @@
+.venv/
+.venv-qe/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+/runs
+dist/
+build/
+
+# Private VASP integration: retain locally, never add to a public repository.
+src/mapho/**/vasp*_patch.py
+src/mapho/**/*_bridge.F.inc
+
+.ruff_cache/
+
+# Historical reports, generated build trees, and local migration inventories.
+docs/archive/
+docs/build_mapho_report/
+rename_migration.json
+runs_migration.json
+
+# Licensed inputs, native binaries, and private Fortran integration sources.
+POTCAR
+POTCAR.*
+*.UPF
+*.upf
+WAVECAR
+CHGCAR
+vasp_std
+vasp_gam
+vasp_ncl
+*.f
+*.F
+*.f90
+*.F90
+*.inc
+
+# Manuscript and benchmark artifacts remain local pending publication approval.
+/docs/source/
+/docs/MAPHO_report.pdf
+/figure_preferences.json
+
+# Local editor recovery files.
+*.swp
+*.swo
+*~

@@ -1,0 +1,18 @@
+include README.md pyproject.toml setup.py MANIFEST.in
+include docs/ace_operator.md docs/releasing.md
+include docs/vasp_exchange.md docs/vasp_pbe0.md
+include docs/renaming.md docs/backends.md
+include tools/check_release.py
+recursive-include tests *.py
+global-exclude vasp*_patch.py *_bridge.F.inc
+global-exclude *.f *.F *.f90 *.F90 *.inc *.pyc *.pyo
+global-exclude POTCAR POTCAR.* *.UPF *.upf WAVECAR CHGCAR
+prune runs
+prune build
+prune dist
+prune .venv
+prune .venv-qe
+prune .git
+prune .pytest_cache
+prune docs/archive
+prune docs/build_mapho_report

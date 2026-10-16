@@ -1,0 +1,6 @@
+# Separate runtime for the serial QE bridge. Do not install into the MACE environment.
+# The published QEpy 7.2 wheel's Fortran handles are incompatible with f90wrap 0.3.
+qepy==7.2.0
+f90wrap==0.2.14
+numpy==1.26.4
+ase==3.29.0
