@@ -1,0 +1,38 @@
+# Paths are relative to this file. Replace them with audited data directories.
+version: 1
+target: pbe
+dataset: ../../runs/pbe_dataset
+atomic_reference: ../../runs/pbe_atomic_reference
+output: ../../runs/pbe_training_yaml
+mode: full                       # full: MAPHO-FNO; local: MAPHO-MACE
+correction_activation: gelu
+
+model:
+  atom_cutoff: 4.5               # angstrom
+  probe_cutoff: 3.0              # angstrom
+  channels: 8
+  lmax: 2
+  correlation: 3
+  radial_count: 12
+  grid_shape: [32, 32, 32]        # Use a rectangular grid for anisotropic cells.
+  fno_width: 8                   # Hidden channels per grid point/Fourier mode.
+  fno_layers: 2                  # Number of correction blocks.
+  q_cutoff: 6.0                  # Retain |q| < 6 inverse angstrom on this grid.
+
+sampling:
+  point_count: 8192
+  seed: 70000
+
+training:
+  epochs: 300
+  seed: 31
+  device: cuda
+  backbone_lr: 3.0e-4
+  head_lr: 1.0e-3
+  validation_interval: 5
+  scheduler_factor: 0.5
+  scheduler_patience: 8          # validation checks
+  min_lr: 1.0e-5
+  gradient_clip: 5.0
+  early_stopping_min_epochs: 150
+  early_stopping_patience: 100   # epochs without validation improvement

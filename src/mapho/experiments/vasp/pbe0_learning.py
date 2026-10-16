@@ -248,14 +248,14 @@ def prepare_training(root, dataset):
     )
 
 
-def fit(root, mode, epochs=300):
+def fit(root, mode, epochs=None, device=None):
     if mode not in ("local", "full"):
         raise ValueError("This pilot compares MAPHO-MACE and MAPHO-FNO")
     m = read_json(Path(root) / "manifest.json")
     if m["target_kind"] != "pbe0_components" or m["correction_activation"] != "gelu":
         raise ValueError("Expected the conditional GELU PBE0 training contract")
-    training.train(root, mode, epochs=epochs)
-    return training.evaluate(root, mode)
+    report = training.train(root, mode, epochs=epochs, device=device)
+    return training.evaluate(root, mode, device=report["training_options"]["device"])
 
 
 def evaluate_bands(root, mode):

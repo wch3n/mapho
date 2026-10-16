@@ -16,6 +16,7 @@ from ..field_model import FieldModelConfig, mace_graph, probe_basis, resize_fiel
 from ..probes import PeriodicProbeGrid
 from .model import PAWModel, atomic_inputs, point_basis, periodic_interpolate
 from .paw import sha, save_json
+from .training_config import model_settings, sampling_settings, training_settings
 
 
 def cpu_state(model):
@@ -97,6 +98,9 @@ def prepare(
     *,
     target_kind="pbe",
     correction_activation="silu",
+    model_options=None,
+    training_options=None,
+    sampling_seed=70000,
 ):
 
     if target_kind not in ("pbe", "pbe0_components") or correction_activation not in (
@@ -104,6 +108,11 @@ def prepare(
         "gelu",
     ):
         raise ValueError("Unsupported target kind or activation")
+    architecture = model_settings(
+        model_options, grid_size=grid_size, grid_shape=grid_shape
+    )
+    optimization = training_settings(training_options)
+    sampling = sampling_settings(dict(point_count=point_count, seed=sampling_seed))
     dataset, atomic, output = map(
         lambda x: Path(x).resolve(), (dataset, atomic, output)
     )
@@ -126,17 +135,9 @@ def prepare(
     legacy = species_channels == {14: [0, 0, 1, 1]}
     config = FieldModelConfig(
         atomic_numbers=tuple(sorted(species_channels)),
-        grid_shape=grid_shape,
-        channels=8,
-        radial_count=12,
-        lmax=2,
-        correlation=3,
-        grid_size=grid_size,
-        fno_width=8,
-        fno_layers=2,
-        probe_chunk_size=8192,
-        probe_edge_chunk_size=32768,
+        **architecture,
     )
+    config.validate()
     statistics = []
     entries = {}
     all_hashes = set()
@@ -177,7 +178,7 @@ def prepare(
                 reference = b["potential_eV"][:]
                 delta = t["potential_eV"][:] - reference
                 dd = t["paw/d"][:] - b["paw/d"][:]
-                rng = np.random.default_rng(70000 + int(name.split("_")[-1]))
+                rng = np.random.default_rng(sampling["seed"] + int(name.split("_")[-1]))
                 ids = rng.choice(
                     delta.size, size=min(point_count, delta.size), replace=False
                 )
@@ -186,7 +187,9 @@ def prepare(
                 ) / np.array(delta.shape)
                 coarse = resize_field(
                     reference,
-                    tuple(grid_shape) if grid_shape is not None else (grid_size,) * 3,
+                    tuple(config.grid_shape)
+                    if config.grid_shape is not None
+                    else (config.grid_size,) * 3,
                 )
                 inputs = atomic_inputs(numbers, positions, cell, coarse)
                 np.savez_compressed(
@@ -246,6 +249,8 @@ def prepare(
         config=asdict(config),
         entries=entries,
         point_count=point_count,
+        sampling=sampling,
+        training=optimization,
         species_channels=None if legacy else species_channels,
         onsite_loss="active native matrix entries only",
         field_scale=field_scale,
@@ -258,7 +263,7 @@ def prepare(
         baseline_definition="VASP ICHARG=12 fixed superposed atomic densities, no SCF input files",
         native_point_loss=True,
         fno_interpolation="periodic trilinear, same at training and inference",
-        seed=31,
+        seed=optimization["seed"],
         modes=["local", "full"]
         if target_kind == "pbe0_components"
         else ["local", "none", "full"],
@@ -334,13 +339,29 @@ def score(model, items):
     )
 
 
-def train(root, mode, epochs=300, device="cuda"):
+def check_configuration_files(root, manifest):
+    for name, digest in manifest.get("configuration_files", {}).items():
+        if sha(Path(root) / name) != digest:
+            raise ValueError(f"Saved training configuration changed: {name}")
+
+
+def train(root, mode, epochs=None, device=None):
     torch.set_num_threads(1)
-    torch.manual_seed(31)
     torch.backends.cuda.matmul.allow_tf32 = False
     torch.backends.cudnn.allow_tf32 = False
     root = Path(root).resolve()
     m = json.loads((root / "manifest.json").read_text())
+    check_configuration_files(root, m)
+    options = dict(m.get("training", {}))
+    if epochs is not None:
+        options["epochs"] = epochs
+    if device is not None:
+        options["device"] = device
+    options = training_settings(options)
+    epochs, device = options["epochs"], options["device"]
+    torch.manual_seed(options["seed"])
+    if mode not in m.get("modes", ["local", "none", "full"]):
+        raise ValueError("Training mode is not supported by this manifest")
     out = root / mode
     out.mkdir(exist_ok=False)
     config = FieldModelConfig(**m["config"])
@@ -372,7 +393,7 @@ def train(root, mode, epochs=300, device="cuda"):
                 for n, p in model.named_parameters()
                 if p.requires_grad and n.startswith("local.backbone")
             ],
-            lr=3e-4,
+            lr=options["backbone_lr"],
         ),
         dict(
             params=[
@@ -380,20 +401,23 @@ def train(root, mode, epochs=300, device="cuda"):
                 for n, p in model.named_parameters()
                 if p.requires_grad and not n.startswith("local.backbone")
             ],
-            lr=1e-3,
+            lr=options["head_lr"],
         ),
     ]
     optimizer = torch.optim.Adam(groups)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, factor=0.5, patience=8, min_lr=1e-5
+        optimizer,
+        factor=options["scheduler_factor"],
+        patience=options["scheduler_patience"],
+        min_lr=options["min_lr"],
     )
     history = [dict(epoch=0, validation=score(model, validation))]
     best = history[0]["validation"]["objective"]
     best_epoch = 0
     best_state = cpu_state(model)
     started = time.monotonic()
-    rng = np.random.default_rng(31)
-    torch.cuda.reset_peak_memory_stats() if device.startswith("cuda") else None
+    rng = np.random.default_rng(options["seed"])
+    torch.cuda.reset_peak_memory_stats(device) if device.startswith("cuda") else None
     for epoch in range(1, epochs + 1):
         model.train()
         losses = []
@@ -407,10 +431,10 @@ def train(root, mode, epochs=300, device="cuda"):
             if not torch.isfinite(loss):
                 raise RuntimeError("Non-finite training loss")
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), options["gradient_clip"])
             optimizer.step()
             losses.append(float(loss.detach()))
-        if epoch % 5 == 0 or epoch == epochs:
+        if epoch % options["validation_interval"] == 0 or epoch == epochs:
             val = score(model, validation)
             scheduler.step(val["objective"])
             if val["objective"] < best:
@@ -433,6 +457,7 @@ def train(root, mode, epochs=300, device="cuda"):
                     description=model.description(),
                     training_manifest_sha256=sha(root / "manifest.json"),
                     best_epoch=best_epoch,
+                    training_options=options,
                 ),
                 out / "model.pt",
             )
@@ -448,7 +473,11 @@ def train(root, mode, epochs=300, device="cuda"):
                 round(time.monotonic() - started, 1),
                 flush=True,
             )
-        if epoch >= 150 and epoch - best_epoch >= 100:
+        if (
+            epoch >= options["early_stopping_min_epochs"]
+            and epoch - best_epoch >= options["early_stopping_patience"]
+            and epoch % options["validation_interval"] == 0
+        ):
             break
     model.load_state_dict(best_state)
     changed = {}
@@ -471,7 +500,8 @@ def train(root, mode, epochs=300, device="cuda"):
     report = dict(
         complete=True,
         mode=mode,
-        seed=31,
+        seed=options["seed"],
+        training_options=options,
         epochs=epoch,
         updates=epoch * len(train_items),
         best_epoch=best_epoch,
@@ -481,7 +511,7 @@ def train(root, mode, epochs=300, device="cuda"):
         parameter_changes=changed,
         wall_seconds=time.monotonic() - started,
         parameters=sum(p.numel() for p in model.parameters() if p.requires_grad),
-        cuda_peak_MiB=torch.cuda.max_memory_allocated() / 1024**2
+        cuda_peak_MiB=torch.cuda.max_memory_allocated(device) / 1024**2
         if device.startswith("cuda")
         else None,
         versions={n: version(n) for n in ("torch", "e3nn", "mace-torch", "numpy")},
@@ -500,6 +530,7 @@ def load_model(root, mode, device):
     desc = checkpoint["description"]
     activation = desc.get("correction_activation", "silu")
     manifest = json.loads((root / "manifest.json").read_text())
+    check_configuration_files(root, manifest)
     if (
         activation != manifest.get("correction_activation", "silu")
         or desc["mode"] != mode
@@ -573,10 +604,12 @@ def predict(model, entry, device):
         return base + native.cpu().numpy().reshape(base.shape), d0 + dd.cpu().numpy()
 
 
-def evaluate(root, mode, device="cuda"):
+def evaluate(root, mode, device=None):
     torch.set_num_threads(1)
     root = Path(root)
     m = json.loads((root / "manifest.json").read_text())
+    if device is None:
+        device = m.get("training", {}).get("device", "cuda")
     model = load_model(root, mode, device)
     out = root / mode / "predictions"
     out.mkdir(exist_ok=False)

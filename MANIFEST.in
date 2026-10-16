@@ -2,6 +2,8 @@ include README.md pyproject.toml setup.py MANIFEST.in
 include docs/ace_operator.md docs/releasing.md
 include docs/vasp_exchange.md docs/vasp_pbe0.md
 include docs/renaming.md docs/backends.md
+include docs/training.md
+recursive-include examples/training *.yaml
 include tools/check_release.py
 recursive-include tests *.py
 global-exclude vasp*_patch.py *_bridge.F.inc

@@ -53,6 +53,12 @@ protocols live in `src/mapho/experiments/vasp/`. Shared models remain at
 `src/mapho/`. See the [package layout](docs/backends.md) for imports, commands,
 worker snapshots, and stored data. Use `mapho-vasp --help` for VASP commands.
 
+For YAML-driven PAW training, use
+`mapho-vasp train run --config examples/training/pbe.yaml`. A `--dry-run`
+prints the resolved settings; CLI overrides such as `--epochs 600` take
+precedence. See the [training guide](docs/training.md) and the
+[conditional PBE0 recipe](examples/training/si_pbe0.yaml).
+
 Python source formatting uses Ruff 0.16.5 with 88-character lines. Install the
 optional `dev` dependencies and run `ruff format .` to format or
 `ruff format --check .` to verify. The configuration excludes run snapshots,

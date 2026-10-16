@@ -1,6 +1,7 @@
 """VASP train commands with lazy imports of APIs and study implementations."""
 
 import argparse
+import json
 
 from . import dispatch
 
@@ -19,17 +20,62 @@ def _train(argv=None):
     q = sub.add_parser("train")
     q.add_argument("root")
     q.add_argument("mode", choices=["local", "none", "full"])
-    q.add_argument("--epochs", type=int, default=300)
+    q.add_argument(
+        "--epochs",
+        type=int,
+        default=None,
+        help="Override manifest setting (default: 300)",
+    )
+    q.add_argument("--device", default=None, help="Override manifest device")
     q = sub.add_parser("evaluate")
     q.add_argument("root")
     q.add_argument("mode", choices=["local", "none", "full"])
+    q.add_argument("--device", default=None, help="Override manifest device")
     a = p.parse_args(argv)
     if a.command == "prepare":
         implementation.prepare(a.dataset, a.atomic, a.output)
     elif a.command == "train":
-        implementation.train(a.root, a.mode, a.epochs)
+        implementation.train(a.root, a.mode, a.epochs, device=a.device)
     else:
-        implementation.evaluate(a.root, a.mode)
+        implementation.evaluate(a.root, a.mode, device=a.device)
+
+
+def _configured_run(argv=None):
+    parser = argparse.ArgumentParser(
+        prog="mapho-vasp train run",
+        description="Prepare and fit a PAW model from YAML; CLI overrides take precedence.",
+    )
+    parser.add_argument("--config", required=True, help="Training YAML file")
+    parser.add_argument("--output", help="New output directory, relative to cwd")
+    parser.add_argument("--mode", choices=["local", "none", "full"])
+    parser.add_argument("--epochs", type=int)
+    parser.add_argument("--device", help="cpu, cuda, or cuda:N")
+    parser.add_argument("--seed", type=int)
+    parser.add_argument("--backbone-lr", type=float)
+    parser.add_argument("--head-lr", type=float)
+    actions = parser.add_mutually_exclusive_group()
+    actions.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate and print resolved settings without writing or training",
+    )
+    actions.add_argument(
+        "--prepare-only",
+        action="store_true",
+        help="Prepare caches and configuration without fitting",
+    )
+    args = vars(parser.parse_args(argv))
+    config = args.pop("config")
+    dry_run, prepare_only = args.pop("dry_run"), args.pop("prepare_only")
+    from ...experiments.vasp.configured_training import run
+
+    result = run(
+        config,
+        overrides={k: v for k, v in args.items() if v is not None},
+        dry_run=dry_run,
+        prepare_only=prepare_only,
+    )
+    print(json.dumps(result, indent=2))
 
 
 def _material_training(argv=None):
@@ -199,13 +245,15 @@ def _pbe0_heads(argv=None):
         s.add_argument("root")
         s.add_argument("mode", choices=["local", "full"])
         if name == "fit":
-            s.add_argument("--epochs", type=int, default=300)
+            s.add_argument("--epochs", type=int, default=None)
+            s.add_argument("--device", default=None)
     args = vars(p.parse_args(argv))
     command = args.pop("command").replace("-", "_")
     return getattr(implementation, command)(**args)
 
 
 COMMANDS = {
+    "run": _configured_run,
     "pbe0-heads": _pbe0_heads,
     "model": _train,
     "material": _material_training,

@@ -48,14 +48,15 @@ Use `mapho-vasp GROUP COMMAND` after installing the package. Each level has
 | Group | Commands |
 |---|---|
 | `data` | `atomic-reference`, `silicon`, `material`, `reference-chunk` |
-| `train` | `model`, `material`, `paw-repair`, `paw-joint`, `activation` |
+| `train` | `run` (YAML), `model`, `pbe0-heads`, `material`, `paw-repair`, `paw-joint`, `activation` |
 | `predict` | `paw`, `silicon-bands`, `binary-bands`, `silicon-plot`, `binary-plot` |
-| `validate` | `paw`, `spin`, `training`, `ace`, `exchange`, `operator`, `hybrid` |
+| `validate` | `paw`, `spin`, `training`, `ace`, `exchange`, `operator`, `hybrid`, `pbe0-convergence` |
 
 ```sh
 mapho-vasp --help
 mapho-vasp data material --help
 mapho-vasp train model --help
+mapho-vasp train run --config examples/training/pbe.yaml --dry-run
 mapho-vasp predict paw export REFERENCE OPERATOR.h5
 mapho-vasp validate ace --help
 ```

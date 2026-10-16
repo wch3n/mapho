@@ -1,0 +1,23 @@
+# Requires completed, audited PBE0 data prepared after mesh convergence.
+# Exchange is supplied by the reference ACE operator, not learned here.
+version: 1
+target: pbe0_components
+dataset: ../../runs/si_pbe0_dataset
+# atomic_reference defaults to DATASET/atomic when omitted.
+output: ../../runs/si_pbe0_training_yaml
+mode: full
+correction_activation: gelu
+model:
+  channels: 8
+  radial_count: 12
+  lmax: 2
+  correlation: 3
+  grid_shape: [32, 32, 32]
+  fno_width: 8
+  fno_layers: 2
+training:
+  epochs: 300
+  seed: 31
+  device: cuda
+  backbone_lr: 3.0e-4
+  head_lr: 1.0e-3
