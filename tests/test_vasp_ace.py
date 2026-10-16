@@ -170,7 +170,7 @@ def test_replay_is_frozen_and_reads_no_reference_wavefunctions(tmp_path):
     assert (s["ICHARG"], s["ISTART"], s["NELMDL"]) == (14, 0, 0)
     assert not s["LWAVE"] and not s["LCHARG"]
     assert "TIME" not in s
-    assert (folder / "MAPHO_ACE_IMPORT").exists() and (folder / "MLHAM_IMPORT").exists()
+    assert (folder / "MAPHO_ACE_IMPORT").exists() and (folder / "MAPHO_IMPORT").exists()
     assert not any((folder / n).exists() for n in ("WAVECAR", "CHGCAR"))
     assert m["complete_operator_components"] and not m["exact_arbitrary_fock_action"]
     assert "omitted_components" not in m

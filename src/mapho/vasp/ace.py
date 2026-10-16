@@ -334,10 +334,10 @@ def prepare_hybrid_replay(
                 "KPOINTS",
                 "INCAR",
                 "POT",
-                "MLHAM_PAW.dat",
+                "MAPHO_PAW.dat",
                 "MAPHO_ACE.bin",
                 "MAPHO_ACE_IMPORT",
-                "MLHAM_IMPORT",
+                "MAPHO_IMPORT",
             )
         },
     )

@@ -42,7 +42,7 @@ def prepare(
     reverse = root / "Fe/reversed_native"
     rm = prepare_reference(reverse, atoms, potcars, magmoms=[-2.5], **options)
     rm["unpatched_control"] = True
-    (reverse / "MLHAM_EXPORT").unlink()
+    (reverse / "MAPHO_EXPORT").unlink()
     save_json(reverse / "manifest.json", rm)
     save_json(
         root / "study.json",

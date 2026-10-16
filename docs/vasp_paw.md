@@ -40,9 +40,9 @@ only been targeted at 6.6.1; its anchors are not a compatibility promise for
 other versions. Recompile `pot.o`, `main.o`, and the dependent objects/link
 using that build's original compiler and MPI configuration.
 
-- `MLHAM_EXPORT` in a calculation directory enables native `POT` output and
-  full-precision `MLHAM_PAW.dat` D/Q output.
-- `MLHAM_IMPORT` with `ICHARG=14` enables full D import after native `POT`
+- `MAPHO_EXPORT` in a calculation directory enables native `POT` output and
+  full-precision `MAPHO_PAW.dat` D/Q output.
+- `MAPHO_IMPORT` with `ICHARG=14` enables full D import after native `POT`
   reading. The bridge checks dimensions, atom types, radial angular channels,
   symmetry, finite values, and native Q consistency.
 - Native `POT` contains an augmentation expansion as well as the grid. The
@@ -227,7 +227,7 @@ The spin HDF5 format is `mapho.vasp_paw_operator.v2` (the historical
 | `bands/spin_moment_muB` | Difference of those occupation sums |
 | `native_pot_suffixes` | Two native augmentation/separator records |
 
-The matrix text format is `MLHAM_PAW_V2`; each active matrix element contains
+The matrix text format is `MAPHO_PAW_V2`; each active matrix element contains
 `D_up D_down Q`. V1 scalar files remain supported with their original shapes.
 Spin reversal exchanges both V and D and reverses the initial moments; it
 refuses nonzero fixed `NUPDOWN` constraints rather than silently changing one.

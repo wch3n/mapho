@@ -51,7 +51,7 @@ def prepare(root, reference, executable, native_executable):
             for n in ("POSCAR", "POTCAR", "KPOINTS", "INCAR", "WAVECAR")
         }
         if name == "reference":
-            (folder / "MLHAM_EXPORT").touch()
+            (folder / "MAPHO_EXPORT").touch()
             (folder / "MAPHO_ACE_EXPORT").touch()
             (folder / "MAPHO_FOCK_EXPORT").touch()
         save_json(folder / "manifest.json", m)
@@ -179,7 +179,7 @@ def execute(root):
                     "MAPHO_ACE.bin",
                     "MAPHO_FOCK.bin",
                     "POT",
-                    "MLHAM_PAW.dat",
+                    "MAPHO_PAW.dat",
                     "operator.h5",
                     "operator.ace.bin",
                 )

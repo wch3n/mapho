@@ -263,7 +263,7 @@ def execute(root, index):
                 in (
                     "EIGENVAL",
                     "POT",
-                    "MLHAM_PAW.dat",
+                    "MAPHO_PAW.dat",
                     "bands.csv",
                     "pbe0_components.h5",
                     "pbe_operator.h5",

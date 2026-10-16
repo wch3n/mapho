@@ -78,8 +78,9 @@ package root, such as `experiments/vasp/silicon_dataset.py`. Existing snapshots
 cannot be overwritten; resume a historical study using its own snapshot.
 
 Saved numerical data and model weights are not rewritten. Readers still
-recognize the former schema prefix, and the validated VASP file protocol is
-unchanged. Historical full-object pickles that require removed Python module
+recognize the former schema prefix. New native VASP calculations use
+`MAPHO_EXPORT`, `MAPHO_IMPORT`, and `MAPHO_PAW.dat`; the private executable
+must support that protocol. Historical full-object pickles that require removed Python module
 names must use their original environment; current model loaders reconstruct
 models from configuration and state dictionaries.
 

@@ -97,7 +97,7 @@ def test_hybrid_diagnostic_is_explicit_and_preserves_exact_components(tmp_path):
             read_pot(out / "POT")[1], f["potential_eV"][:], atol=1e-14
         )
         np.testing.assert_array_equal(
-            read_paw(out / "MLHAM_PAW.dat")["d"], f["paw/d"][:]
+            read_paw(out / "MAPHO_PAW.dat")["d"], f["paw/d"][:]
         )
     assert not (out / "WAVECAR").exists()
 
@@ -154,7 +154,7 @@ def test_only_small_native_hybrid_asymmetry_can_be_projected(tmp_path, noise):
     else:
         m = prepare_replay(source, tmp_path / "diagnostic", omit_fock=True)
         np.testing.assert_allclose(
-            read_paw(tmp_path / "diagnostic/MLHAM_PAW.dat")["d"],
+            read_paw(tmp_path / "diagnostic/MAPHO_PAW.dat")["d"],
             0.5 * (raw + raw.swapaxes(-1, -2)),
             rtol=0,
             atol=1e-15,

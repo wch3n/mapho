@@ -497,7 +497,7 @@ def band_case(root, split, index):
     settings = dict(read_json(folder / "reference/manifest.json")["settings"])
     settings["ICHARG"] = 11
     write_incar(native / "INCAR", settings)
-    (native / "MLHAM_EXPORT").touch()
+    (native / "MAPHO_EXPORT").touch()
     original.update(
         settings=settings,
         inputs={

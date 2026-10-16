@@ -311,7 +311,7 @@ def bands(root, material, mode):
             + "\nReciprocal\n"
             + "".join(" ".join(f"{v:.16g}" for v in row) + " 1\n" for row in points)
         )
-        (folder / "MLHAM_EXPORT").touch()
+        (folder / "MAPHO_EXPORT").touch()
         m = read_json(source / "manifest.json")
         m.update(
             settings=settings,

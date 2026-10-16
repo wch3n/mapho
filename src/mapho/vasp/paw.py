@@ -157,10 +157,10 @@ def read_paw(path, *, d_symmetry_tolerance_eV=1e-10):
     with Path(path).open() as f:
         version = f.readline().strip()
         dims = list(map(int, f.readline().split()))
-        if version == "MLHAM_PAW_V1" and len(dims) == 3:
+        if version == "MAPHO_PAW_V1" and len(dims) == 3:
             lmdim, natoms, ntypes = dims
             nspin = 1
-        elif version == "MLHAM_PAW_V2" and len(dims) == 4 and dims[3] == 2:
+        elif version == "MAPHO_PAW_V2" and len(dims) == 4 and dims[3] == 2:
             lmdim, natoms, ntypes, nspin = dims
         else:
             raise ValueError("Unsupported PAW matrix format/spin dimensions")
@@ -251,9 +251,9 @@ def write_paw(path, paw):
     with Path(path).open("w") as f:
         dims = f"{q.shape[-1]} {len(q)} {len(channels)}"
         f.write(
-            ("MLHAM_PAW_V1\n" + dims + "\n")
+            ("MAPHO_PAW_V1\n" + dims + "\n")
             if nspin == 1
-            else ("MLHAM_PAW_V2\n" + dims + " 2\n")
+            else ("MAPHO_PAW_V2\n" + dims + " 2\n")
         )
         for ls in channels:
             f.write(str(len(ls)) + "\n" + " ".join(map(str, ls)) + "\n")
@@ -395,7 +395,7 @@ def prepare_reference(
         if nupdown is not None:
             settings["NUPDOWN"] = float(nupdown)
     write_incar(folder / "INCAR", settings)
-    (folder / "MLHAM_EXPORT").touch()
+    (folder / "MAPHO_EXPORT").touch()
     manifest = dict(
         schema="mapho.vasp_paw_reference.v1",
         functional="PBE",
@@ -613,7 +613,7 @@ def export_operator(folder, output, *, components_only=False):
     # Keep raw D in incomplete hybrid archives. Small native numerical
     # asymmetry is recorded, not silently projected away at export time.
     paw = read_paw(
-        folder / "MLHAM_PAW.dat", d_symmetry_tolerance_eV=1e-6 if hybrid else 1e-10
+        folder / "MAPHO_PAW.dat", d_symmetry_tolerance_eV=1e-6 if hybrid else 1e-10
     )
     bands = read_bands(folder)
     if len(paw["types"]) != len(atoms):
@@ -635,7 +635,7 @@ def export_operator(folder, output, *, components_only=False):
         spin_channels=["scalar"] if nspin == 1 else ["up", "down"],
         source_sha256={
             n: sha(folder / n)
-            for n in ("POT", "MLHAM_PAW.dat", "vasprun.xml", "EIGENVAL", "OUTCAR")
+            for n in ("POT", "MAPHO_PAW.dat", "vasprun.xml", "EIGENVAL", "OUTCAR")
         },
         field_units="eV",
         grid_axes="xyz, fractional coordinates i/n",
@@ -811,8 +811,8 @@ def prepare_replay(
         settings["NELMIN"] = 2
     write_incar(folder / "INCAR", settings)
     write_pot(folder / "POT", field, header, suffix)
-    write_paw(folder / "MLHAM_PAW.dat", paw)
-    (folder / "MLHAM_IMPORT").touch()
+    write_paw(folder / "MAPHO_PAW.dat", paw)
+    (folder / "MAPHO_IMPORT").touch()
     m = dict(
         schema="mapho.vasp_paw_replay.v1",
         replay=True,
@@ -823,7 +823,7 @@ def prepare_replay(
         settings=settings,
         inputs={
             n: sha(folder / n)
-            for n in ("POSCAR", "POTCAR", "INCAR", "KPOINTS", "POT", "MLHAM_PAW.dat")
+            for n in ("POSCAR", "POTCAR", "INCAR", "KPOINTS", "POT", "MAPHO_PAW.dat")
         },
     )
     if omit_fock:

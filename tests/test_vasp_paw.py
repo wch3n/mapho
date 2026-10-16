@@ -59,8 +59,9 @@ def test_paw_channels_padding_and_gauge_shift(tmp_path):
         r = rng.normal(size=(n, n))
         q[a, :n, :n] = (r + r.T) / 2
     paw = dict(d=d, q=q, types=np.array([0, 1]), channels=channels)
-    p = tmp_path / "MLHAM_PAW.dat"
+    p = tmp_path / "MAPHO_PAW.dat"
     write_paw(p, paw)
+    assert p.read_text().splitlines()[0] == "MAPHO_PAW_V1"
     other = read_paw(p)
     assert other["channels"] == channels
     np.testing.assert_allclose(other["d"], d, atol=1e-16)
@@ -129,8 +130,10 @@ def test_replay_api_preserves_paw_gauge_and_checks_dataset(tmp_path, schema):
         f["native_pot_header"] = header
         f["native_pot_suffix"] = suffix
     prepare_replay(operator, tmp_path / "replay", shift_eV=0.25)
+    assert (tmp_path / "replay/MAPHO_IMPORT").is_file()
+    assert not list((tmp_path / "replay").glob("MLHAM*"))
     _, v, _, _ = read_pot(tmp_path / "replay/POT")
-    paw = read_paw(tmp_path / "replay/MLHAM_PAW.dat")
+    paw = read_paw(tmp_path / "replay/MAPHO_PAW.dat")
     # Independent generalized eigenproblem, built from serialized API output.
     p = np.array([[0.3, 0.1], [0.2, 0.4], [0.1, 0.2]])
     overlap = np.eye(3) + p @ np.diag(q[:, 0, 0]) @ p.T

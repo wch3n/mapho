@@ -34,7 +34,7 @@ calculations without the import marker retain their native exchange path.
 ## Data flow
 
 1. Run a converged native PBE0 reference with the private adapter. Alongside
-   the existing `MLHAM_EXPORT` marker, `MAPHO_FOCK_EXPORT` requests final
+   the existing `MAPHO_EXPORT` marker, `MAPHO_FOCK_EXPORT` requests final
    construction states and uncompressed actions in `MAPHO_FOCK.bin`.
    `MAPHO_ACE_EXPORT` additionally writes native factors for a comparison.
 2. `mapho.vasp.ace.export_hybrid(reference, output)` checks the reference
@@ -54,7 +54,7 @@ complex128 arrays. Both Python and the private importer reject mismatched
 metadata and malformed records. The Python constructor is also available as:
 
 ```sh
-python -m mapho.vasp.exchange MAPHO_FOCK.bin operator.ace.bin
+mapho-vasp validate exchange MAPHO_FOCK.bin operator.ace.bin
 ```
 
 `mapho.vasp_paw_ace.v2` identifies this combined archive. Partial hybrid
