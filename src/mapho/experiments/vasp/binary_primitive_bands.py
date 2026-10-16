@@ -249,7 +249,7 @@ def reference(root, material, name):
 def predict_material(root, material):
     import torch
     from ...vasp.train import load_model, predict
-    from .paw_repair import load_model as load_repaired
+    from ...vasp.checkpoints import load_repaired_model
 
     torch.set_num_threads(1)
     root = Path(root)
@@ -262,7 +262,7 @@ def predict_material(root, material):
         label = "silu_" + mode if spec["repaired"] else mode
         if sha(training / label / "model.pt") != spec["checkpoints"][mode]:
             raise ValueError("Checkpoint changed")
-        model = (load_repaired if spec["repaired"] else load_model)(
+        model = (load_repaired_model if spec["repaired"] else load_model)(
             training, label, "cuda"
         )
         v, d = predict(
@@ -465,7 +465,8 @@ def execute(root):
             sys.executable,
             "-u",
             "-m",
-            "mapho.commands.vasp.binary_primitive_bands",
+            "mapho.commands.vasp.predict",
+            "binary-bands",
             stage,
             str(root),
             material,

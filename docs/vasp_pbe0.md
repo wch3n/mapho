@@ -71,7 +71,7 @@ control and the raw native outputs are retained. The v2 changes tighten the
 PBE diagonalization and explicitly account for that small hybrid numerical
 asymmetry; neither issue is hidden by loosening the eigenvalue threshold.
 
-The driver is `python -m mapho.commands.vasp.hybrid_pilot`. Preparation stores an isolated
+The driver is `mapho-vasp validate hybrid`. Preparation stores an isolated
 source snapshot; execution checks it and the executable hashes. The GPU job
 uses this snapshot so subsequent code changes do not alter an active run.
 

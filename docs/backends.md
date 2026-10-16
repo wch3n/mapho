@@ -1,9 +1,8 @@
-# Backends, commands, and workflows
+# Package layout and commands
 
-VASP integration has three separate layers. The reusable API handles operator
-files, models, training, prediction, and checkpoint loading. Command modules
-parse arguments and call that API or a workflow. Workflows prepare datasets,
-launch calculations, validate results, or reproduce specific experiments.
+Reusable VASP code lives in `mapho.vasp`. Argument parsing is grouped by task
+in `mapho.commands.vasp`. Research protocols and material-specific benchmarks
+live in `mapho.experiments.vasp`; they are not a stable application API.
 
 ```text
 src/mapho/
@@ -14,12 +13,14 @@ src/mapho/
     train.py                    Training, baseline loading, and prediction
     checkpoints.py              Repaired and joint checkpoint loading
     ace.py, exchange.py         ACE transport and independent construction
-  commands/vasp/                Argument parsing and dispatch
-    __init__.py                 mapho-vasp command selection
-    paw.py, train.py, ...        Thin per-command interfaces
-  workflows/vasp/               Calculation and experiment orchestration
-    *_dataset.py                Reference dataset preparation and sampling
-    *_validation.py             Native validation workflows
+  commands/vasp/                Four groups of CLI handlers
+    data.py                     Dataset and atomic-reference preparation
+    train.py                    Model fitting and training studies
+    predict.py                  Operator replay, band calculations, and plots
+    validate.py                 Native checks and hybrid diagnostics
+  experiments/vasp/             Research protocols and benchmark drivers
+    *_dataset.py                Si, LiF, and MoS2 dataset protocols
+    *_validation.py             Native validation studies
     *_bands.py, *_plot.py        Material-specific band checks and plots
     paw_repair.py, paw_joint.py  Repair and joint fine-tuning experiments
     activation_ablation.py      Activation comparison
@@ -30,11 +31,9 @@ src/mapho/
   exchange.py, ace_operator.py  Independent exchange and ACE implementations
   model.py, graph.py            Orbital-block baseline
   source_snapshot.py            Recursive worker snapshots and source hashes
-  _compat.py                    Historical module and command aliases
 ```
 
-The core VASP API does not import the workflow or command packages during
-normal use. Conditioned checkpoints can be loaded directly:
+The core VASP API does not import commands or experiments during inference:
 
 ```python
 from mapho.vasp.paw import export_operator, prepare_replay
@@ -43,50 +42,47 @@ from mapho.vasp.checkpoints import load_repaired_model, load_joint_model
 from mapho.qe.backend import QEConfig, run_reference
 ```
 
-Use `mapho-vasp` to select a command after installing the package:
+Use `mapho-vasp GROUP COMMAND` after installing the package. Each level has
+`--help`, and selecting a group imports no electronic-structure or ML backend.
+
+| Group | Commands |
+|---|---|
+| `data` | `atomic-reference`, `silicon`, `material`, `reference-chunk` |
+| `train` | `model`, `material`, `paw-repair`, `paw-joint`, `activation` |
+| `predict` | `paw`, `silicon-bands`, `binary-bands`, `silicon-plot`, `binary-plot` |
+| `validate` | `paw`, `spin`, `training`, `ace`, `exchange`, `operator`, `hybrid` |
 
 ```sh
 mapho-vasp --help
-mapho-vasp paw --help
-mapho-vasp train --help
-mapho-vasp material-dataset --help
-mapho-vasp paw-joint --help
+mapho-vasp data material --help
+mapho-vasp train model --help
+mapho-vasp predict paw export REFERENCE OPERATOR.h5
+mapho-vasp validate ace --help
 ```
 
-The equivalent module entry point is `python -m mapho.commands.vasp`. Individual
-commands also work as modules, for example
-`python -m mapho.commands.vasp.silicon_dataset --help`. Worker subprocesses use
-these command modules explicitly. Import workflow functions when orchestrating
-from Python, for example `mapho.workflows.vasp.material_dataset.prepare`.
+The equivalent module entry point is `python -m mapho.commands.vasp`.
+Calculation workers use a group module, for example
+`python -m mapho.commands.vasp.data silicon worker ROOT PHASE INDEX`.
+Research protocols are also callable from Python through
+`mapho.experiments.vasp.material_dataset.prepare` and related modules.
 
-The existing `mapho-vasp-paw` and `mlham-vasp-paw` console commands remain valid.
-Historical imports such as `mapho.vasp.silicon_dataset`,
-`mapho.vasp_silicon_dataset`, and `mlham.vasp_silicon_dataset` resolve to the
-same workflow module. Their old `python -m` commands dispatch to the new CLI
-without executing a second copy of the workflow. Old conditioned-model loader
-names re-export the core checkpoint functions. The small `main()` delegates
-in the core PAW, exchange, and training modules preserve existing entry points;
-all argument parsing lives in the command layer.
+Legacy Python imports, forwarding entry points, `mlham-*` commands, and
+`mapho-vasp-paw` have been removed. Use canonical backend imports and the
+grouped dispatcher. The `mapho`, `mapho-qe`, and `mapho-fields` commands remain.
+The QE command still supports `python -m mapho.qe`.
 
-The QE package is unchanged by the VASP workflow separation. It provides
-`mapho.qe.backend`, `mapho.qe.exchange`, `mapho.qe.files`, and `mapho.qe.upf`,
-alongside QE reference and validation workflows. The existing `mapho-qe` and
-`python -m mapho.qe` commands remain valid.
+Experiment sources remain inside the package so new worker snapshots contain
+all code needed by a study. Snapshots copy public Python modules recursively,
+including `commands/` and `experiments/`. Manifests hash paths relative to the
+package root, such as `experiments/vasp/silicon_dataset.py`. Existing snapshots
+cannot be overwritten; resume a historical study using its own snapshot.
 
-New worker snapshots copy the public Python tree recursively, including
-`commands/` and `workflows/`. Manifests hash paths relative to the package root,
-such as `workflows/vasp/silicon_dataset.py`. Existing snapshots cannot be
-overwritten. Historical runs retain their recorded files and hashes; resume
-those studies with their own source snapshot. Data schemas, model parameters,
-and the validated VASP file protocol are unchanged.
+Saved numerical data and model weights are not rewritten. Readers still
+recognize the former schema prefix, and the validated VASP file protocol is
+unchanged. Historical full-object pickles that require removed Python module
+names must use their original environment; current model loaders reconstruct
+models from configuration and state dictionaries.
 
 Private VASP patchers and Fortran bridge includes remain local and excluded
 from worker snapshots and releases. Manuscript and benchmark artifacts also
-remain local, as requested. See [release exclusions](releasing.md).
-
-Validation of this separation passed 317 CPU tests, with one CUDA-only test
-skipped. Saved Si, LiF, and MoS2 checkpoint outputs were bitwise identical
-before and after the move for one held-out structure per material on a 6x7x8
-probe grid. The comparison covered the local field, Fourier correction, and
-PAW readout. Wheel and source-archive exclusion checks also passed. The local
-validation record is `runs/workflow_layout_20261016/refactor.json`.
+remain local. See [release exclusions](releasing.md).

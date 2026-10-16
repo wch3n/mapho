@@ -7,8 +7,8 @@ Native validation precedes any new test prediction. Original runs are immutable.
 from ...vasp.checkpoints import (
     read_json,
     check_hash,
-    load_base_for_repair as get_base,
-    load_repaired_model as load_model,
+    load_base_for_repair,
+    load_repaired_model,
 )
 
 from ...source_snapshot import snapshot_package, source_hashes, source_path
@@ -260,7 +260,7 @@ def fit(root, label):
         raise ValueError("Evaluation-only run cannot refit models")
     out = root / label
     out.mkdir(exist_ok=False)
-    base = get_base(m, label, device).eval()
+    base = load_base_for_repair(m, label, device).eval()
     base.requires_grad_(False)
     training, qs, channels = gather(base, m["entries"]["train"], device)
     specifications = build_specifications(
@@ -410,7 +410,7 @@ def predictions(root, label, split, model=None):
     m = read_json(root / "manifest.json")
     if split == "test" and not read_json(root / "validation_summary.json")["passed"]:
         raise ValueError("Validation must pass before test evaluation")
-    model = load_model(root, label) if model is None else model
+    model = load_repaired_model(root, label) if model is None else model
     out = root / label / "predictions" / split
     out.mkdir(parents=True, exist_ok=False)
     rows = []
@@ -627,7 +627,8 @@ def execute(root, phase):
                     sys.executable,
                     "-u",
                     "-m",
-                    "mapho.commands.vasp.paw_repair",
+                    "mapho.commands.vasp.train",
+                    "paw-repair",
                     command,
                     str(root),
                     label,
@@ -654,7 +655,8 @@ def execute(root, phase):
                     sys.executable,
                     "-u",
                     "-m",
-                    "mapho.commands.vasp.paw_repair",
+                    "mapho.commands.vasp.train",
+                    "paw-repair",
                     "bands",
                     str(root),
                     phase,

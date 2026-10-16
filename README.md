@@ -48,10 +48,10 @@ it does not yet establish a trained PBE0 model. VASP patchers and Fortran
 bridges remain excluded from [public release archives](docs/releasing.md).
 
 Reusable backend code lives in `src/mapho/qe/` and `src/mapho/vasp/`.
-VASP argument parsing lives in `src/mapho/commands/vasp/`, and calculation
-workflows live in `src/mapho/workflows/vasp/`. Shared models remain at
+VASP argument parsing lives in `src/mapho/commands/vasp/`, and research
+protocols live in `src/mapho/experiments/vasp/`. Shared models remain at
 `src/mapho/`. See the [package layout](docs/backends.md) for imports, commands,
-worker snapshots, and compatibility. Use `mapho-vasp --help` for VASP commands.
+worker snapshots, and stored data. Use `mapho-vasp --help` for VASP commands.
 
 Python source formatting uses Ruff 0.16.5 with 88-character lines. Install the
 optional `dev` dependencies and run `ruff format .` to format or
@@ -266,21 +266,17 @@ it is intended to verify train/predict/reconstruct, not establish accuracy on
 DFT labels or support a state-of-the-art claim.
 
 
-## Project name and compatibility
+## Project name and stored data
 
-The canonical package and command prefix are `mapho`. Use `import mapho`,
-`python -m mapho`, and the `mapho`, `mapho-qe`, `mapho-fields`, and
-`mapho-vasp-paw` commands. MAPHO expands to **Many-body Potential-based
-Hamiltonian Operator**.
+MAPHO expands to **Many-body Potential-based Hamiltonian Operator**. Use
+`import mapho`, `python -m mapho`, and the `mapho`, `mapho-qe`, `mapho-fields`,
+and `mapho-vasp` commands. VASP commands are grouped into `data`, `train`,
+`predict`, and `validate`; run `mapho-vasp --help` to start.
 
-All implementations live in `src/mapho`; `src/mlham` contains one lazy
-compatibility shim for saved imports, commands, and pickle class paths.
-New serialized schema identifiers and QE restart prefixes use `mapho`.
-Readers accept the corresponding historical schemas and obtain QE restart
-names from the saved input. The VASP bridge retains its validated
-`MLHAM_EXPORT`, `MLHAM_IMPORT`, and `MLHAM_PAW.dat` file protocol.
-Historical run manifests,
-input files, source snapshots, hashes and recorded job names are preserved.
-The home and scratch directories are now named `mapho`; `runs` links to scratch.
-See [the migration notes](docs/renaming.md) for the completed migration and the
-legacy filesystem links needed by existing manifests and environments.
+The old `mlham` Python namespace and import aliases have been removed.
+Readers still accept stored data with the former schema prefix, and QE
+restart lookup reads the prefix from the saved input. The validated VASP
+file protocol retains `MLHAM_EXPORT`, `MLHAM_IMPORT`, and `MLHAM_PAW.dat`.
+Historical runs, source snapshots, and hashes are preserved. The `runs`
+directory links to scratch. See the [package layout](docs/backends.md) and
+[migration notes](docs/renaming.md).

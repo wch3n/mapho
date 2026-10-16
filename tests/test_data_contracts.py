@@ -1,53 +1,14 @@
-"""Historical imports/data remain readable without duplicate implementations."""
+"""Stored data stay immutable and QE restarts use the explicit input prefix."""
 
 import hashlib
 import json
-import os
-import subprocess
-import sys
 
 import numpy as np
 import pytest
 
 from mapho.fields import load_operator_reference
-from mapho.qe_files import save_directory
+from mapho.qe.files import save_directory
 from test_fields import example
-
-
-def run_python(*args):
-    env = os.environ.copy()
-    env.pop("PYTHONPATH", None)
-    return subprocess.run(
-        [sys.executable, *args], env=env, text=True, capture_output=True, check=True
-    )
-
-
-def test_lazy_alias_preserves_class_module_and_pickle_identity():
-    run_python(
-        "-c",
-        """
-import importlib, pickle, sys
-import mlham
-assert 'torch' not in sys.modules
-assert 'mapho.qe' not in sys.modules
-canonical = importlib.import_module('mapho.qe')
-legacy = importlib.import_module('mlham.qe')
-assert legacy is canonical
-assert canonical.__name__ == canonical.__spec__.name == 'mapho.qe'
-assert legacy.QEConfig is canonical.QEConfig
-payload = pickle.dumps(canonical.QEConfig, protocol=0).replace(b'mapho.qe', b'mlham.qe')
-assert pickle.loads(payload) is canonical.QEConfig
-from mlham import qe
-assert qe is canonical
-assert importlib.import_module('mlham.schema') is importlib.import_module('mapho.schema')
-""",
-    )
-
-
-@pytest.mark.parametrize("module", ["mlham", "mlham.qe"])
-def test_legacy_module_commands(module):
-    result = run_python("-m", module, "--help")
-    assert "usage:" in result.stdout and "--help" in result.stdout
 
 
 @pytest.mark.parametrize("prefix", ["mapho", "mlham"])

@@ -1,4 +1,4 @@
-"""CLI dispatch stays separate from reusable inference and calculation workflows."""
+"""Grouped commands preserve dispatch and keep inference independent of studies."""
 
 import importlib
 import json
@@ -8,15 +8,21 @@ import sys
 
 import pytest
 
-from mapho.commands.vasp import COMMANDS, main
+from mapho.commands.vasp import GROUPS, main
+
+COMMANDS = [
+    (group, command)
+    for group in GROUPS
+    for command in importlib.import_module("mapho.commands.vasp." + group).COMMANDS
+]
 
 
-@pytest.mark.parametrize("command", COMMANDS)
-def test_each_command_has_help_without_running_calculations(command, capsys):
+@pytest.mark.parametrize("group,command", COMMANDS)
+def test_each_command_has_help_without_running_calculations(group, command, capsys):
     with pytest.raises(SystemExit) as result:
-        main([command, "--help"])
+        main([group, command, "--help"])
     assert result.value.code == 0
-    assert "usage:" in capsys.readouterr().out
+    assert f"usage: mapho-vasp {group} {command}" in capsys.readouterr().out
 
 
 def test_paw_dispatch_preserves_positional_order_and_shift(monkeypatch, capsys):
@@ -29,16 +35,16 @@ def test_paw_dispatch_preserves_positional_order_and_shift(monkeypatch, capsys):
         return {"passed": True}
 
     monkeypatch.setattr(paw, "compare", compare)
-    main(["paw", "compare", "reference", "prediction", "--shift-eV", "0.25"])
+    main(["predict", "paw", "compare", "reference", "prediction", "--shift-eV", "0.25"])
     assert calls == [("reference", "prediction", 0.25)]
     assert json.loads(capsys.readouterr().out) == {"passed": True}
 
 
-def test_silicon_dispatch_uses_workflow_namespace(monkeypatch, capsys):
-    from mapho.workflows.vasp import silicon_dataset
+def test_silicon_dispatch_uses_experiment_namespace(monkeypatch, capsys):
+    from mapho.experiments.vasp import silicon_dataset
 
     monkeypatch.setattr(silicon_dataset, "convergence", lambda root: {"root": root})
-    main(["silicon-dataset", "convergence", "study"])
+    main(["data", "silicon", "convergence", "study"])
     assert json.loads(capsys.readouterr().out) == {"root": "study"}
 
 
@@ -50,15 +56,12 @@ def test_training_validation_calls_reusable_training_api(monkeypatch):
     monkeypatch.setattr(
         train, "evaluate", lambda *args: calls.append(("evaluate", args))
     )
-    main(["training-validation", "fit", "study", "full", "--epochs", "7"])
-    assert calls == [
-        ("train", ("study", "full", 7)),
-        ("evaluate", ("study", "full")),
-    ]
+    main(["validate", "training", "fit", "study", "full", "--epochs", "7"])
+    assert calls == [("train", ("study", "full", 7)), ("evaluate", ("study", "full"))]
 
 
 def test_worker_dispatch_preserves_integer_index_and_exceptions(monkeypatch):
-    from mapho.workflows.vasp import atomic_reference
+    from mapho.experiments.vasp import atomic_reference
 
     def worker(root, index):
         assert root == "study" and index == 3
@@ -66,7 +69,7 @@ def test_worker_dispatch_preserves_integer_index_and_exceptions(monkeypatch):
 
     monkeypatch.setattr(atomic_reference, "worker", worker)
     with pytest.raises(ValueError, match="Reference validation failed"):
-        main(["atomic-reference", "worker", "study", "3"])
+        main(["data", "atomic-reference", "worker", "study", "3"])
 
 
 def run_python(*args):
@@ -77,57 +80,64 @@ def run_python(*args):
     )
 
 
-def test_core_inference_does_not_import_workflow_or_cli_layers():
+def test_core_inference_does_not_import_experiment_or_cli_layers():
     run_python(
         "-c",
         """
 import sys
 from mapho.vasp.checkpoints import load_joint_model, load_repaired_model
 from mapho.vasp.train import load_model, predict
-assert not any(name.startswith(('mapho.workflows', 'mapho.commands')) for name in sys.modules)
+assert not any(name.startswith(('mapho.experiments', 'mapho.commands')) for name in sys.modules)
 """,
     )
 
 
-def test_top_level_help_does_not_import_electronic_or_training_backends():
+@pytest.mark.parametrize("args", [[], *[[group] for group in GROUPS]])
+def test_group_help_does_not_import_electronic_or_training_backends(args):
     run_python(
         "-c",
         """
-import sys
+import json, sys
 from mapho.commands.vasp import main
 try:
-    main(['--help'])
+    main(json.loads(sys.argv[1]) + ['--help'])
 except SystemExit as result:
     assert result.code == 0
 assert 'torch' not in sys.modules
-assert not any(name.startswith(('mapho.vasp', 'mapho.workflows')) for name in sys.modules)
+assert not any(name.startswith(('mapho.vasp', 'mapho.experiments')) for name in sys.modules)
 """,
+        json.dumps(args),
     )
 
 
-@pytest.mark.parametrize(
-    "module",
-    [
-        "mapho.commands.vasp.silicon_dataset",
-        "mapho.vasp.silicon_dataset",
-        "mapho.vasp_silicon_dataset",
-        "mlham.vasp_silicon_dataset",
-    ],
-)
-def test_saved_worker_commands_remain_executable(module):
-    result = run_python("-m", module, "--help")
-    assert "convergence" in result.stdout and "worker" in result.stdout
-    assert "RuntimeWarning" not in result.stderr
+@pytest.mark.parametrize("args", [[], ["unknown"], ["data", "unknown"], ["train"]])
+def test_missing_or_invalid_command_fails_before_backend_import(args):
+    run_python(
+        "-c",
+        """
+import json, sys
+from mapho.commands.vasp import main
+try:
+    main(json.loads(sys.argv[1]))
+except SystemExit as result:
+    assert result.code == 2
+else:
+    raise AssertionError('Invalid command was accepted')
+assert 'torch' not in sys.modules
+""",
+        json.dumps(args),
+    )
 
 
-def test_previous_checkpoint_loaders_reexport_core_functions():
-    from mapho.vasp.checkpoints import load_joint_model, load_repaired_model
-
-    for prefix in ("mapho.vasp.", "mapho.vasp_", "mlham.vasp_"):
-        assert (
-            importlib.import_module(prefix + "paw_joint").load_model is load_joint_model
-        )
-        assert (
-            importlib.import_module(prefix + "paw_repair").load_model
-            is load_repaired_model
-        )
+def test_no_legacy_import_hook_is_installed():
+    run_python(
+        "-c",
+        """
+import importlib.util, sys
+before = list(sys.meta_path)
+import mapho
+assert sys.meta_path == before
+for name in ('mlham', 'mapho._compat', 'mapho.vasp_paw', 'mapho.workflows'):
+    assert importlib.util.find_spec(name) is None, name
+""",
+    )

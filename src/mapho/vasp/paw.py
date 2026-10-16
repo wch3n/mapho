@@ -867,14 +867,3 @@ def compare(reference, replay, shift_eV=0.0, tolerance_eV=1e-4, reverse_spins=Fa
         expected_shift_eV=np.asarray(shift_eV).tolist(),
         reverse_spins=reverse_spins,
     )
-
-
-def main(argv=None):
-    """Compatibility entry point; argument parsing lives in mapho.commands.vasp."""
-    from ..commands.vasp.paw import main as command
-
-    return command(argv)
-
-
-if __name__ == "__main__":
-    main()

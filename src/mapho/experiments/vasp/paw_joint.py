@@ -21,8 +21,8 @@ from ...vasp.paw import sha, save_json, prepare_replay, run, read_bands, write_i
 from ...vasp.checkpoints import (
     check_hash,
     read_json,
-    initial_joint_model as initial_model,
-    load_joint_model as load_model,
+    initial_joint_model,
+    load_joint_model,
 )
 from ...vasp.paw_conditioning import ConditionedPAWModel
 from ...vasp.train import load_items, paw_contract, predict, cpu_state
@@ -201,7 +201,7 @@ def fit(root, label):
     device = "cuda"
     out = root / label
     out.mkdir(exist_ok=False)
-    model = initial_model(m, label, device)
+    model = initial_joint_model(m, label, device)
     train = data_items(m, model, "train", device)
     validation = data_items(m, model, "validation", device)
     initial = {
@@ -353,7 +353,7 @@ def predictions(root, label, split):
         and not read_json(root / "validation_summary.json")["passed"]
     ):
         raise ValueError("Native validation must pass before test")
-    model = load_model(root, label)
+    model = load_joint_model(root, label)
     out = root / label / "predictions" / split
     out.mkdir(parents=True, exist_ok=False)
     if split == "primitive":
@@ -589,7 +589,8 @@ def execute(root):
                 sys.executable,
                 "-u",
                 "-m",
-                "mapho.commands.vasp.paw_joint",
+                "mapho.commands.vasp.train",
+                "paw-joint",
                 stage,
                 str(root),
                 *map(str, args),

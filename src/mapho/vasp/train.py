@@ -550,14 +550,3 @@ def evaluate(root, mode, device="cuda"):
     )
     save_json(root / mode / "test_fields.json", report)
     return report
-
-
-def main(argv=None):
-    """Compatibility entry point; argument parsing lives in mapho.commands.vasp."""
-    from ..commands.vasp.train import main as command
-
-    return command(argv)
-
-
-if __name__ == "__main__":
-    main()

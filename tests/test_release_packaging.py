@@ -105,16 +105,13 @@ def test_wheel_sdist_and_rebuilt_wheel_exclude_private_files(tmp_path):
         "qe/backend.py",
         "commands/__init__.py",
         "commands/vasp/__init__.py",
-        "commands/vasp/paw.py",
-        "workflows/__init__.py",
-        "workflows/vasp/__init__.py",
-        "workflows/vasp/silicon_dataset.py",
+        "commands/vasp/predict.py",
+        "experiments/__init__.py",
+        "experiments/vasp/__init__.py",
+        "experiments/vasp/silicon_dataset.py",
     ]:
         (package / name).parent.mkdir(parents=True, exist_ok=True)
         (package / name).write_text("# synthetic public module\n")
-    legacy = project / "src/mlham"
-    legacy.mkdir()
-    (legacy / "__init__.py").write_text("# synthetic compatibility shim\n")
     private = [
         "vasp_patch.py",
         "vasp_ace_patch.py",
@@ -126,12 +123,19 @@ def test_wheel_sdist_and_rebuilt_wheel_exclude_private_files(tmp_path):
         (package / name).write_text("SYNTHETIC_PRIVATE_SENTINEL\n")
     stale = project / "build/lib/mapho"
     stale.mkdir(parents=True)
-    for name in private + ["qe.py", "vasp_paw.py", "vasp/silicon_dataset.py"]:
+    for name in private + [
+        "qe.py",
+        "vasp_paw.py",
+        "vasp/silicon_dataset.py",
+        "_compat.py",
+        "commands/vasp/paw.py",
+        "workflows/vasp/silicon_dataset.py",
+    ]:
         (stale / name).parent.mkdir(parents=True, exist_ok=True)
         (stale / name).write_text("SYNTHETIC_STALE_SENTINEL\n")
     legacy_stale = project / "build/lib/mlham"
     legacy_stale.mkdir()
-    (legacy_stale / "qe.py").write_text("SYNTHETIC_OBSOLETE_WRAPPER\n")
+    (legacy_stale / "__init__.py").write_text("SYNTHETIC_OBSOLETE_WRAPPER\n")
     run = project / "runs/private"
     run.mkdir(parents=True)
     (run / "POTCAR").write_text("SYNTHETIC_DATA_SENTINEL\n")
@@ -149,11 +153,14 @@ def test_wheel_sdist_and_rebuilt_wheel_exclude_private_files(tmp_path):
         assert "mapho/qe.py" not in archive.namelist()
         assert "mapho/vasp_paw.py" not in archive.namelist()
         assert "mapho/vasp/silicon_dataset.py" not in archive.namelist()
-        assert "mapho/commands/vasp/paw.py" in archive.namelist()
-        assert "mapho/workflows/vasp/silicon_dataset.py" in archive.namelist()
-        assert [name for name in archive.namelist() if name.startswith("mlham/")] == [
-            "mlham/__init__.py"
-        ]
+        assert "mapho/commands/vasp/predict.py" in archive.namelist()
+        assert "mapho/experiments/vasp/silicon_dataset.py" in archive.namelist()
+        assert not any(name.startswith("mlham/") for name in archive.namelist())
+        assert "mapho/_compat.py" not in archive.namelist()
+        assert "mapho/commands/vasp/paw.py" not in archive.namelist()
+        assert not any(
+            name.startswith("mapho/workflows/") for name in archive.namelist()
+        )
     with tarfile.open(source) as archive:
         assert any(name.endswith("/setup.py") for name in archive.getnames())
         archive.extractall(tmp_path / "unpacked", filter="data")

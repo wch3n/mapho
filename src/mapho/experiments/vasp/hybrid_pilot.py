@@ -302,10 +302,3 @@ def collect(root):
     )
     save_json(root / "completion.json", report)
     return report
-
-
-def main(argv=None):
-    """Compatibility entry point; argument parsing lives in mapho.commands.vasp."""
-    from ...commands.vasp.hybrid_pilot import main as command
-
-    return command(argv)

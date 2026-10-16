@@ -1,75 +1,14 @@
-"""Backend relocation preserves saved imports and isolated worker execution."""
+"""Isolated worker snapshots contain the canonical package and experiment sources."""
 
-import importlib
+from importlib.metadata import distribution
 import json
 import os
-from pathlib import Path
-import pickle
 import subprocess
 import sys
 
 import pytest
 
-from mapho._compat import BACKEND_ALIASES
 from mapho.source_snapshot import snapshot_package, source_hashes
-
-
-@pytest.mark.parametrize("old,new", sorted(BACKEND_ALIASES.items()))
-def test_flat_backend_aliases_share_the_canonical_module(old, new):
-    if new.endswith("_patch"):
-        pytest.importorskip(new)  # Private patchers are absent from releases.
-    canonical = importlib.import_module(new)
-    assert importlib.import_module(old) is canonical
-    assert importlib.import_module(old.replace("mapho.", "mlham.", 1)) is canonical
-    assert importlib.import_module(new.replace("mapho.", "mlham.", 1)) is canonical
-    assert canonical.__name__ == canonical.__spec__.name == new
-
-
-@pytest.mark.parametrize(
-    "module,name,new",
-    [
-        ("mapho.qe", "QEConfig", "mapho.qe.backend"),
-        ("mapho.vasp_model", "PAWModel", "mapho.vasp.model"),
-        (
-            "mapho.vasp_paw_conditioning",
-            "ConditionedPAWModel",
-            "mapho.vasp.paw_conditioning",
-        ),
-        ("mlham.qe", "QEConfig", "mapho.qe.backend"),
-        ("mlham.vasp_model", "PAWModel", "mapho.vasp.model"),
-    ],
-)
-def test_historical_pickle_class_paths(module, name, new):
-    # Protocol-0 GLOBAL payloads reproduce the original flat class locations.
-    payload = f"c{module}\n{name}\n.".encode()
-    assert pickle.loads(payload) is getattr(importlib.import_module(new), name)
-
-
-@pytest.mark.parametrize(
-    "module",
-    [
-        "mapho.qe",
-        "mapho.qe.backend",
-        "mapho.qe.exchange",
-        "mapho.qe_exchange",
-        "mapho.vasp.paw",
-        "mapho.vasp_paw",
-        "mlham.vasp_paw",
-    ],
-)
-def test_canonical_and_historical_commands(module, tmp_path):
-    env = os.environ.copy()
-    env.pop("PYTHONPATH", None)
-    result = subprocess.run(
-        [sys.executable, "-m", module, "--help"],
-        cwd=tmp_path,
-        env=env,
-        check=True,
-        text=True,
-        capture_output=True,
-    )
-    assert "usage:" in result.stdout
-    assert "RuntimeWarning" not in result.stderr
 
 
 def test_snapshot_runs_nested_backends_without_source_tree_fallback(tmp_path):
@@ -77,7 +16,6 @@ def test_snapshot_runs_nested_backends_without_source_tree_fallback(tmp_path):
     hashes = snapshot_package(package)
     assert hashes == source_hashes(package)
     assert {
-        "_compat.py",
         "source_snapshot.py",
         "field_model.py",
         "qe/backend.py",
@@ -85,9 +23,11 @@ def test_snapshot_runs_nested_backends_without_source_tree_fallback(tmp_path):
         "vasp/model.py",
         "vasp/paw.py",
         "vasp/checkpoints.py",
-        "commands/vasp/paw.py",
-        "workflows/vasp/silicon_dataset.py",
+        "commands/vasp/predict.py",
+        "experiments/vasp/silicon_dataset.py",
     } <= hashes.keys()
+    assert "_compat.py" not in hashes
+    assert not any(name.startswith("workflows/") for name in hashes)
     assert not list(package.rglob("*_patch.py"))
     assert not list(package.rglob("*.inc"))
     with pytest.raises(FileExistsError):
@@ -127,3 +67,35 @@ assert source_path('vasp/paw.py') == package/'vasp/paw.py'
         capture_output=True,
         text=True,
     )
+
+    for group, command in (
+        ("data", "silicon"),
+        ("train", "paw-joint"),
+        ("predict", "binary-bands"),
+        ("validate", "ace"),
+    ):
+        result = subprocess.run(
+            [sys.executable, "-m", "mapho.commands.vasp." + group, command, "--help"],
+            cwd=tmp_path,
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        assert "usage:" in result.stdout
+
+
+def test_installed_console_entry_points_resolve_without_import_aliases():
+    scripts = [
+        entry
+        for entry in distribution("mapho").entry_points
+        if entry.group == "console_scripts"
+    ]
+    assert {entry.name for entry in scripts} == {
+        "mapho",
+        "mapho-qe",
+        "mapho-fields",
+        "mapho-vasp",
+    }
+    for entry in scripts:
+        assert callable(entry.load()), entry.name

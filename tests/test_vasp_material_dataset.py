@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from mapho.workflows.vasp.material_dataset import structure, kpoints, prepare
+from mapho.experiments.vasp.material_dataset import structure, kpoints, prepare
 
 
 def test_binary_bulk_and_slab_geometry_sampling():
@@ -50,7 +50,7 @@ def test_inputs_and_split_gate(tmp_path, material):
     from mapho.source_snapshot import source_hashes
 
     assert m["source_sha256"] == source_hashes(root / "source_snapshot/mapho")
-    assert "workflows/vasp/material_dataset.py" in m["source_sha256"]
+    assert "experiments/vasp/material_dataset.py" in m["source_sha256"]
     members = sum(m["splits"].values(), [])
     assert len(members) == len(set(members)) == 8
     assert not (root / "completion.json").exists()

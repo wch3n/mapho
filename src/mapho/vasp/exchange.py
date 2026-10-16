@@ -92,14 +92,3 @@ def compare_native_factors(samples, mapho_factors, native_factors):
         passed=passed,
         comparison="Actions only; factors need not be identical",
     )
-
-
-def main(argv=None):
-    """Compatibility entry point; argument parsing lives in mapho.commands.vasp."""
-    from ..commands.vasp.exchange import main as command
-
-    return command(argv)
-
-
-if __name__ == "__main__":
-    main()
