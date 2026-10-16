@@ -2,7 +2,6 @@
 
 from ..schema import canonical_schema
 
-import argparse
 from dataclasses import asdict
 from importlib.metadata import version
 import json
@@ -553,24 +552,12 @@ def evaluate(root, mode, device="cuda"):
     return report
 
 
+def main(argv=None):
+    """Compatibility entry point; argument parsing lives in mapho.commands.vasp."""
+    from ..commands.vasp.train import main as command
+
+    return command(argv)
+
+
 if __name__ == "__main__":
-    p = argparse.ArgumentParser(description=__doc__)
-    sub = p.add_subparsers(dest="command", required=True)
-    q = sub.add_parser("prepare")
-    q.add_argument("dataset")
-    q.add_argument("atomic")
-    q.add_argument("output")
-    q = sub.add_parser("train")
-    q.add_argument("root")
-    q.add_argument("mode", choices=["local", "none", "full"])
-    q.add_argument("--epochs", type=int, default=300)
-    q = sub.add_parser("evaluate")
-    q.add_argument("root")
-    q.add_argument("mode", choices=["local", "none", "full"])
-    a = p.parse_args()
-    if a.command == "prepare":
-        prepare(a.dataset, a.atomic, a.output)
-    elif a.command == "train":
-        train(a.root, a.mode, a.epochs)
-    else:
-        evaluate(a.root, a.mode)
+    main()

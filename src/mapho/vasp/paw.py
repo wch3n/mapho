@@ -7,7 +7,6 @@ It is an operator/data interface, not a trained PAW Hamiltonian model.
 
 from ..schema import canonical_schema
 
-import argparse
 from io import StringIO
 import json
 from pathlib import Path
@@ -870,28 +869,11 @@ def compare(reference, replay, shift_eV=0.0, tolerance_eV=1e-4, reverse_spins=Fa
     )
 
 
-def main():
-    p = argparse.ArgumentParser(description=__doc__)
-    sub = p.add_subparsers(dest="command", required=True)
-    ex = sub.add_parser("export")
-    ex.add_argument("reference", type=Path)
-    ex.add_argument("output", type=Path)
-    rp = sub.add_parser("replay")
-    rp.add_argument("operator", type=Path)
-    rp.add_argument("folder", type=Path)
-    rp.add_argument("--shift-eV", type=float, default=0.0)
-    co = sub.add_parser("compare")
-    co.add_argument("reference")
-    co.add_argument("replay")
-    co.add_argument("--shift-eV", type=float, default=0.0)
-    args = p.parse_args()
-    if args.command == "export":
-        result = export_operator(args.reference, args.output)
-    elif args.command == "replay":
-        result = prepare_replay(args.operator, args.folder, shift_eV=args.shift_eV)
-    else:
-        result = compare(args.reference, args.replay, args.shift_eV)
-    print(json.dumps(result, indent=2))
+def main(argv=None):
+    """Compatibility entry point; argument parsing lives in mapho.commands.vasp."""
+    from ..commands.vasp.paw import main as command
+
+    return command(argv)
 
 
 if __name__ == "__main__":

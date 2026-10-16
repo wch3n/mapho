@@ -5,8 +5,7 @@ Calibration structures are separate from the structure-level dataset splits.
 Only reference data are generated here; no PAW learning model is trained.
 """
 
-from ..source_snapshot import snapshot_package, source_hashes, source_path
-import argparse
+from ...source_snapshot import snapshot_package, source_hashes, source_path
 from datetime import datetime, timezone
 from importlib.metadata import version
 import json
@@ -21,7 +20,7 @@ import xml.etree.ElementTree as ET
 import h5py
 import numpy as np
 
-from .paw import prepare_reference, run, export_operator, save_json, sha
+from ...vasp.paw import prepare_reference, run, export_operator, save_json, sha
 
 
 def silicon_structure(seed=None, calibration=False):
@@ -399,7 +398,7 @@ def execute(root):
                         sys.executable,
                         "-u",
                         "-m",
-                        "mapho.vasp.silicon_dataset",
+                        "mapho.commands.vasp.silicon_dataset",
                         "worker",
                         str(root),
                         phase,
@@ -440,32 +439,3 @@ def execute(root):
     )
     save_json(root / "completion.json", completion)
     return completion
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    sub = parser.add_subparsers(dest="command", required=True)
-    p = sub.add_parser("prepare")
-    p.add_argument("root")
-    p.add_argument("--potcar", required=True)
-    p.add_argument("--executable", required=True)
-    p.add_argument("--count", type=int, default=24)
-    for name in ("execute", "convergence"):
-        p = sub.add_parser(name)
-        p.add_argument("root")
-    p = sub.add_parser("worker")
-    p.add_argument("root")
-    p.add_argument("phase", choices=["calibration", "samples"])
-    p.add_argument("index", type=int)
-    args = parser.parse_args()
-    if args.command == "prepare":
-        result = prepare(args.root, args.potcar, args.executable, count=args.count)
-        result = {
-            k: result[k]
-            for k in ("schema", "count", "natoms", "production_kppvol", "splits")
-        }
-    elif args.command == "worker":
-        result = run_case(args.root, args.phase, args.index)
-    else:
-        result = globals()[args.command](args.root)
-    print(json.dumps(result, indent=2))

@@ -5,8 +5,7 @@ and one k point normal to the layers. Each stage is independently restartable
 from certified completed cases; failed native calculations are never reused.
 """
 
-from ..source_snapshot import snapshot_package, source_hashes, source_path
-import argparse
+from ...source_snapshot import snapshot_package, source_hashes, source_path
 from datetime import datetime, timezone
 from importlib.metadata import version
 import json
@@ -18,7 +17,14 @@ import sys
 import h5py
 import numpy as np
 
-from .paw import prepare_reference, export_operator, run, save_json, sha, potcar_info
+from ...vasp.paw import (
+    prepare_reference,
+    export_operator,
+    run,
+    save_json,
+    sha,
+    potcar_info,
+)
 from .silicon_dataset import density_kpoints, compare_operators, case_report
 from .training_validation import LAUNCHER, parallel
 
@@ -398,7 +404,7 @@ def execute(root, phase):
                     sys.executable,
                     "-u",
                     "-m",
-                    __spec__.name,
+                    "mapho.commands.vasp.material_dataset",
                     "worker",
                     str(root),
                     phase,
@@ -411,45 +417,3 @@ def execute(root, phase):
     if not result["passed"]:
         raise RuntimeError("Convergence gate failed; inspect convergence.json")
     return result
-
-
-if __name__ == "__main__":
-    p = argparse.ArgumentParser(description=__doc__)
-    sub = p.add_subparsers(dest="command", required=True)
-    q = sub.add_parser("prepare")
-    q.add_argument("root")
-    q.add_argument("material", choices=["lif", "mos2"])
-    q.add_argument("--potcar-root", required=True)
-    q.add_argument("--executable", required=True)
-    q = sub.add_parser("execute")
-    q.add_argument("root")
-    q.add_argument("phase", choices=["calibration", "samples"])
-    q = sub.add_parser("worker")
-    q.add_argument("root")
-    q.add_argument("phase")
-    q.add_argument("index", type=int)
-    q = sub.add_parser("audit")
-    q.add_argument("root")
-    a = p.parse_args()
-    if a.command == "prepare":
-        m = prepare(a.root, a.material, a.potcar_root, a.executable)
-        print(
-            json.dumps(
-                {
-                    k: m[k]
-                    for k in (
-                        "material",
-                        "count",
-                        "natoms",
-                        "nbands",
-                        "production_kppvol",
-                    )
-                }
-            )
-        )
-    elif a.command == "worker":
-        worker(a.root, a.phase, a.index)
-    elif a.command == "execute":
-        execute(a.root, a.phase)
-    else:
-        audit(a.root)

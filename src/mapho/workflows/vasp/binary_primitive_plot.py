@@ -1,6 +1,5 @@
 """Plot certified primitive LiF and bilayer MoS2 spectra, retaining a common energy zero."""
 
-import argparse
 import csv
 import json
 from pathlib import Path
@@ -263,9 +262,3 @@ def plot(root):
         )
     (out / "figure_caption.txt").write_text(caption)
     return out
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("root")
-    plot(parser.parse_args().root)

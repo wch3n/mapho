@@ -19,13 +19,14 @@ dev = ["ruff==0.16.5"]
 mapho = "mapho.cli:main"
 mapho-qe = "mapho.qe:main"
 mapho-fields = "mapho.field_train:main"
-mapho-vasp-paw = "mapho.vasp.paw:main"
+mapho-vasp = "mapho.commands.vasp:main"
+mapho-vasp-paw = "mapho.commands.vasp.paw:main"
 
 # Compatibility commands for previously saved scripts.
 mlham = "mapho.cli:main"
 mlham-qe = "mapho.qe:main"
 mlham-fields = "mapho.field_train:main"
-mlham-vasp-paw = "mapho.vasp.paw:main"
+mlham-vasp-paw = "mapho.commands.vasp.paw:main"
 
 [tool.setuptools]
 include-package-data = false

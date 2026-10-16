@@ -103,6 +103,12 @@ def test_wheel_sdist_and_rebuilt_wheel_exclude_private_files(tmp_path):
         "vasp/paw.py",
         "qe/__init__.py",
         "qe/backend.py",
+        "commands/__init__.py",
+        "commands/vasp/__init__.py",
+        "commands/vasp/paw.py",
+        "workflows/__init__.py",
+        "workflows/vasp/__init__.py",
+        "workflows/vasp/silicon_dataset.py",
     ]:
         (package / name).parent.mkdir(parents=True, exist_ok=True)
         (package / name).write_text("# synthetic public module\n")
@@ -120,7 +126,7 @@ def test_wheel_sdist_and_rebuilt_wheel_exclude_private_files(tmp_path):
         (package / name).write_text("SYNTHETIC_PRIVATE_SENTINEL\n")
     stale = project / "build/lib/mapho"
     stale.mkdir(parents=True)
-    for name in private + ["qe.py", "vasp_paw.py"]:
+    for name in private + ["qe.py", "vasp_paw.py", "vasp/silicon_dataset.py"]:
         (stale / name).parent.mkdir(parents=True, exist_ok=True)
         (stale / name).write_text("SYNTHETIC_STALE_SENTINEL\n")
     legacy_stale = project / "build/lib/mlham"
@@ -142,6 +148,9 @@ def test_wheel_sdist_and_rebuilt_wheel_exclude_private_files(tmp_path):
         assert "mapho/qe/backend.py" in archive.namelist()
         assert "mapho/qe.py" not in archive.namelist()
         assert "mapho/vasp_paw.py" not in archive.namelist()
+        assert "mapho/vasp/silicon_dataset.py" not in archive.namelist()
+        assert "mapho/commands/vasp/paw.py" in archive.namelist()
+        assert "mapho/workflows/vasp/silicon_dataset.py" in archive.namelist()
         assert [name for name in archive.namelist() if name.startswith("mlham/")] == [
             "mlham/__init__.py"
         ]

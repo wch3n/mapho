@@ -1,6 +1,5 @@
 """Plot the completed primitive-cell transfer check with a shared energy zero."""
 
-import argparse
 import csv
 import json
 from pathlib import Path
@@ -159,9 +158,3 @@ def plot(root):
         "statistical tests are implied. Every calculated level is retained in the accompanying CSV.\n"
     )
     (root / "figure_caption.txt").write_text(caption)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("root")
-    plot(parser.parse_args().root)

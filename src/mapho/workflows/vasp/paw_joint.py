@@ -4,8 +4,7 @@ The existing training split and training-only normalization remain fixed.
 Validation selects checkpoints; native validation precedes test predictions.
 """
 
-from ..source_snapshot import snapshot_package, source_hashes, source_path
-import argparse
+from ...source_snapshot import snapshot_package, source_hashes, source_path
 import copy
 import json
 import os
@@ -18,10 +17,15 @@ import h5py
 import numpy as np
 import torch
 
-from .paw import sha, save_json, prepare_replay, run, read_bands, write_incar
-from .paw_repair import load_model as load_repaired, check_hash, read_json
-from .paw_conditioning import ConditionedPAWModel
-from .train import load_items, paw_contract, predict, cpu_state
+from ...vasp.paw import sha, save_json, prepare_replay, run, read_bands, write_incar
+from ...vasp.checkpoints import (
+    check_hash,
+    read_json,
+    initial_joint_model as initial_model,
+    load_joint_model as load_model,
+)
+from ...vasp.paw_conditioning import ConditionedPAWModel
+from ...vasp.train import load_items, paw_contract, predict, cpu_state
 from .training_validation import parallel, LAUNCHER, KS
 
 LABELS = ("silu_none", "silu_full")
@@ -100,18 +104,6 @@ def prepare(root, repaired, primitive, epochs=300):
             source_sha256=source_hashes(snapshot),
         ),
     )
-
-
-def initial_model(manifest, label, device):
-    parent = Path(manifest["repaired"])
-    check_hash(parent / "manifest.json", manifest["repaired_manifest_sha256"])
-    check_hash(parent / label / "model.pt", manifest["parent_checkpoints"][label])
-    frozen = load_repaired(parent, label, device)
-    model = ConditionedPAWModel(frozen.base, frozen.specifications, train_base=True).to(
-        device
-    )
-    model.heads.load_state_dict(frozen.heads.state_dict())
-    return model
 
 
 def data_items(manifest, model, split, device):
@@ -350,26 +342,6 @@ def fit(root, label):
             trainable="MACE backbone, field decoder and offset, correction network, conditioned PAW heads",
         ),
     )
-
-
-def load_model(root, label, device="cuda"):
-    root = Path(root)
-    m = read_json(root / "manifest.json")
-    check_hash(
-        root / label / "model.pt",
-        read_json(root / label / "training.json")["checkpoint_sha256"],
-    )
-    checkpoint = torch.load(
-        root / label / "model.pt", map_location="cpu", weights_only=False
-    )
-    if (
-        checkpoint["manifest_sha256"] != sha(root / "manifest.json")
-        or checkpoint["label"] != label
-    ):
-        raise ValueError("Joint checkpoint contract changed")
-    model = initial_model(m, label, device)
-    model.load_state_dict(checkpoint["state_dict"])
-    return model.eval()
 
 
 def predictions(root, label, split):
@@ -617,7 +589,7 @@ def execute(root):
                 sys.executable,
                 "-u",
                 "-m",
-                __spec__.name,
+                "mapho.commands.vasp.paw_joint",
                 stage,
                 str(root),
                 *map(str, args),
@@ -657,45 +629,3 @@ def execute(root):
     )
     summarize(root, "test")
     primitive_results(root)
-
-
-if __name__ == "__main__":
-    p = argparse.ArgumentParser(description=__doc__)
-    sub = p.add_subparsers(dest="command", required=True)
-    q = sub.add_parser("prepare")
-    q.add_argument("root")
-    q.add_argument("repaired")
-    q.add_argument("primitive")
-    q.add_argument("--epochs", type=int, default=300)
-    for name in ("execute", "primitive-results"):
-        q = sub.add_parser(name)
-        q.add_argument("root")
-    for name in ("fit", "predict"):
-        q = sub.add_parser(name)
-        q.add_argument("root")
-        q.add_argument("label", choices=LABELS)
-        if name == "predict":
-            q.add_argument("split", choices=["validation", "test", "primitive"])
-    q = sub.add_parser("bands")
-    q.add_argument("root")
-    q.add_argument("split")
-    q.add_argument("index", type=int)
-    q.add_argument("label", choices=LABELS)
-    q = sub.add_parser("summarize")
-    q.add_argument("root")
-    q.add_argument("split")
-    a = p.parse_args()
-    if a.command == "prepare":
-        prepare(a.root, a.repaired, a.primitive, a.epochs)
-    elif a.command == "fit":
-        fit(a.root, a.label)
-    elif a.command == "predict":
-        predictions(a.root, a.label, a.split)
-    elif a.command == "bands":
-        bands(a.root, a.split, a.index, a.label)
-    elif a.command == "summarize":
-        summarize(a.root, a.split)
-    elif a.command == "primitive-results":
-        primitive_results(a.root)
-    else:
-        execute(a.root)

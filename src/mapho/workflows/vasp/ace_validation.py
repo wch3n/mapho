@@ -1,15 +1,14 @@
 """Native reference, frozen-ACE replay, gauge and missing-exchange controls."""
 
-from ..source_snapshot import snapshot_package, source_hashes, source_path
-import argparse
+from ...source_snapshot import snapshot_package, source_hashes, source_path
 import json
 from pathlib import Path
 import shutil
 
-from .ace import export_hybrid, prepare_hybrid_replay
-from .exchange import compare_native_factors
+from ...vasp.ace import export_hybrid, prepare_hybrid_replay
+from ...vasp.exchange import compare_native_factors
 from .hybrid_pilot import LAUNCHER, band_metrics
-from .paw import compare, run, save_json, sha, write_incar
+from ...vasp.paw import compare, run, save_json, sha, write_incar
 
 
 def prepare(root, reference, executable, native_executable):
@@ -194,18 +193,3 @@ def execute(root):
     finally:
         save_json(root / "validation.json", report)
     return report
-
-
-if __name__ == "__main__":
-    p = argparse.ArgumentParser(description=__doc__)
-    sub = p.add_subparsers(dest="command", required=True)
-    s = sub.add_parser("prepare")
-    s.add_argument("root")
-    s.add_argument("reference")
-    s.add_argument("executable")
-    s.add_argument("native_executable")
-    s = sub.add_parser("execute")
-    s.add_argument("root")
-    a = vars(p.parse_args())
-    command = a.pop("command")
-    print(json.dumps((prepare if command == "prepare" else execute)(**a), indent=2))

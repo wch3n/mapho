@@ -47,9 +47,11 @@ gauge-shift, and reduced-exchange controls. This validates the interface;
 it does not yet establish a trained PBE0 model. VASP patchers and Fortran
 bridges remain excluded from [public release archives](docs/releasing.md).
 
-Backend-specific code lives in `src/mapho/qe/` and `src/mapho/vasp/`.
-Shared models remain at `src/mapho/`. See the [package layout](docs/backends.md)
-for imports, commands, worker snapshots, and compatibility.
+Reusable backend code lives in `src/mapho/qe/` and `src/mapho/vasp/`.
+VASP argument parsing lives in `src/mapho/commands/vasp/`, and calculation
+workflows live in `src/mapho/workflows/vasp/`. Shared models remain at
+`src/mapho/`. See the [package layout](docs/backends.md) for imports, commands,
+worker snapshots, and compatibility. Use `mapho-vasp --help` for VASP commands.
 
 Python source formatting uses Ruff 0.16.5 with 88-character lines. Install the
 optional `dev` dependencies and run `ruff format .` to format or

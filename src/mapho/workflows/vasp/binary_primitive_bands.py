@@ -1,7 +1,6 @@
 """Frozen LiF16 and MoS2-bilayer24 checkpoints on their pristine primitive cells."""
 
-from ..source_snapshot import snapshot_package, source_hashes
-import argparse
+from ...source_snapshot import snapshot_package, source_hashes
 import json
 import os
 from pathlib import Path
@@ -12,7 +11,7 @@ import h5py
 import numpy as np
 
 from .material_dataset import structure, kpoints
-from .paw import (
+from ...vasp.paw import (
     prepare_reference,
     prepare_replay,
     run,
@@ -249,7 +248,7 @@ def reference(root, material, name):
 
 def predict_material(root, material):
     import torch
-    from .train import load_model, predict
+    from ...vasp.train import load_model, predict
     from .paw_repair import load_model as load_repaired
 
     torch.set_num_threads(1)
@@ -466,7 +465,7 @@ def execute(root):
             sys.executable,
             "-u",
             "-m",
-            "mapho.vasp.binary_primitive_bands",
+            "mapho.commands.vasp.binary_primitive_bands",
             stage,
             str(root),
             material,
@@ -496,30 +495,3 @@ def execute(root):
     )
     parallel(root, [cmd("bands", s, "native_replay") for s in ("lif", "mos2")], devices)
     analyze(root)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    sub = parser.add_subparsers(dest="command", required=True)
-    for command in ("prepare", "execute", "analyze"):
-        p = sub.add_parser(command)
-        p.add_argument("root")
-    for command in ("reference", "predict", "bands"):
-        p = sub.add_parser(command)
-        p.add_argument("root")
-        p.add_argument("material", choices=["lif", "mos2"])
-        if command != "predict":
-            p.add_argument("name")
-    a = parser.parse_args()
-    if a.command == "prepare":
-        prepare(a.root)
-    elif a.command == "reference":
-        reference(a.root, a.material, a.name)
-    elif a.command == "predict":
-        predict_material(a.root, a.material)
-    elif a.command == "bands":
-        bands(a.root, a.material, a.name)
-    elif a.command == "analyze":
-        analyze(a.root)
-    else:
-        execute(a.root)

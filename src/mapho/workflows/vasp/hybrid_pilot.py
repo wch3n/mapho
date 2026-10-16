@@ -5,8 +5,7 @@ with Fock omitted to measure the missing contribution of the current interface.
 All executable, input, source and output identities are retained in scratch.
 """
 
-from ..source_snapshot import snapshot_package, source_hashes, source_path
-import argparse
+from ...source_snapshot import snapshot_package, source_hashes, source_path
 import csv
 from datetime import datetime, timezone
 import json
@@ -17,7 +16,7 @@ import shutil
 from ase.build import bulk
 import numpy as np
 
-from .paw import (
+from ...vasp.paw import (
     compare,
     export_operator,
     prepare_reference,
@@ -305,27 +304,8 @@ def collect(root):
     return report
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    sub = parser.add_subparsers(dest="command", required=True)
-    p = sub.add_parser("prepare")
-    p.add_argument("root", type=Path)
-    p.add_argument("--potcar", type=Path, required=True)
-    p.add_argument("--executable", type=Path, required=True)
-    p.add_argument("--native-executable", type=Path, required=True)
-    p.add_argument("--meshes", nargs="+", type=int, default=[2, 3])
-    p = sub.add_parser("execute")
-    p.add_argument("root", type=Path)
-    p.add_argument("index", type=int)
-    p = sub.add_parser("collect")
-    p.add_argument("root", type=Path)
-    args = vars(parser.parse_args())
-    command = args.pop("command")
-    result = {"prepare": prepare, "execute": execute, "collect": collect}[command](
-        **args
-    )
-    print(json.dumps(result, indent=2))
+def main(argv=None):
+    """Compatibility entry point; argument parsing lives in mapho.commands.vasp."""
+    from ...commands.vasp.hybrid_pilot import main as command
 
-
-if __name__ == "__main__":
-    main()
+    return command(argv)

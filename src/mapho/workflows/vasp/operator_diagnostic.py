@@ -1,7 +1,6 @@
 """Separate learned smooth-potential and PAW-matrix errors in frozen operators."""
 
-from ..source_snapshot import snapshot_package, source_hashes, source_path
-import argparse
+from ...source_snapshot import snapshot_package, source_hashes, source_path
 import json
 import os
 from pathlib import Path
@@ -11,7 +10,7 @@ import sys
 import h5py
 import numpy as np
 
-from .paw import (
+from ...vasp.paw import (
     prepare_reference,
     prepare_replay,
     run,
@@ -214,29 +213,17 @@ def execute(root):
     tasks = [
         (
             f"{t['name']}_{t['variant']}",
-            [sys.executable, "-u", "-m", __spec__.name, "worker", str(root), str(i)],
+            [
+                sys.executable,
+                "-u",
+                "-m",
+                "mapho.commands.vasp.operator_diagnostic",
+                "worker",
+                str(root),
+                str(i),
+            ],
         )
         for i, t in enumerate(m["tasks"])
     ]
     parallel(root, tasks, os.environ["CUDA_VISIBLE_DEVICES"].split(","))
     summarize(root)
-
-
-if __name__ == "__main__":
-    p = argparse.ArgumentParser(description=__doc__)
-    sub = p.add_subparsers(dest="command", required=True)
-    q = sub.add_parser("prepare")
-    q.add_argument("root")
-    q.add_argument("training")
-    q = sub.add_parser("execute")
-    q.add_argument("root")
-    q = sub.add_parser("worker")
-    q.add_argument("root")
-    q.add_argument("index", type=int)
-    a = p.parse_args()
-    if a.command == "prepare":
-        prepare(a.root, a.training)
-    elif a.command == "worker":
-        worker(a.root, a.index)
-    else:
-        execute(a.root)

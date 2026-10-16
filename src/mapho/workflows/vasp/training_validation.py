@@ -1,6 +1,5 @@
 """Native convention checks and held-out PAW operator/eigenvalue validation."""
 
-import argparse
 import json
 import os
 from pathlib import Path
@@ -13,7 +12,7 @@ import h5py
 import numpy as np
 from ase.io import read
 
-from .paw import (
+from ...vasp.paw import (
     prepare_reference,
     prepare_replay,
     run,
@@ -41,7 +40,7 @@ KS = np.array([[0.0, 0.0, 0.0], [0.13, 0.21, 0.07], [0.31, 0.11, 0.23]])
 
 
 def native_checks(root):
-    from .model import native_sp_order
+    from ...vasp.model import native_sp_order
 
     root = Path(root)
     m = json.loads((root / "manifest.json").read_text())
@@ -234,7 +233,7 @@ def pipeline(root, epochs=300):
         [
             sys.executable,
             "-m",
-            "mapho.vasp.training_validation",
+            "mapho.commands.vasp.training_validation",
             "native-checks",
             str(root),
         ],
@@ -248,7 +247,7 @@ def pipeline(root, epochs=300):
                 sys.executable,
                 "-u",
                 "-m",
-                "mapho.vasp.training_validation",
+                "mapho.commands.vasp.training_validation",
                 "fit",
                 str(root),
                 mode,
@@ -269,7 +268,7 @@ def pipeline(root, epochs=300):
                     sys.executable,
                     "-u",
                     "-m",
-                    "mapho.vasp.training_validation",
+                    "mapho.commands.vasp.training_validation",
                     "bands",
                     str(root),
                     str(i),
@@ -301,31 +300,3 @@ def pipeline(root, epochs=300):
         },
     )
     save_json(root / "completion.json", result)
-
-
-if __name__ == "__main__":
-    p = argparse.ArgumentParser(description=__doc__)
-    sub = p.add_subparsers(dest="command", required=True)
-    for name in ("native-checks", "pipeline"):
-        q = sub.add_parser(name)
-        q.add_argument("root")
-        q.add_argument("--epochs", type=int, default=300)
-    q = sub.add_parser("fit")
-    q.add_argument("root")
-    q.add_argument("mode")
-    q.add_argument("--epochs", type=int, default=300)
-    q = sub.add_parser("bands")
-    q.add_argument("root")
-    q.add_argument("index", type=int)
-    a = p.parse_args()
-    if a.command == "native-checks":
-        native_checks(a.root)
-    elif a.command == "bands":
-        bands_case(a.root, a.index)
-    elif a.command == "pipeline":
-        pipeline(a.root, a.epochs)
-    else:
-        from .train import train, evaluate
-
-        train(a.root, a.mode, a.epochs)
-        evaluate(a.root, a.mode)

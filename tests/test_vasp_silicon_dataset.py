@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from pymatgen.io.vasp.inputs import Incar, Kpoints, Poscar
 
-from mapho.vasp.silicon_dataset import (
+from mapho.workflows.vasp.silicon_dataset import (
     silicon_structure,
     density_kpoints,
     prepare,
@@ -38,7 +38,7 @@ def test_written_inputs_share_density_and_splits_exclude_calibration(tmp_path):
     from mapho.source_snapshot import source_hashes
 
     assert m["source_sha256"] == source_hashes(root / "source_snapshot/mapho")
-    assert "vasp/silicon_dataset.py" in m["source_sha256"]
+    assert "workflows/vasp/silicon_dataset.py" in m["source_sha256"]
     assert "_compat.py" in m["source_sha256"]
     members = sum(m["splits"].values(), [])
     assert len(members) == len(set(members)) == 8

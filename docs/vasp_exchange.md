@@ -63,7 +63,7 @@ replay or training as a complete Hamiltonian.
 
 ## Validation
 
-The driver `python -m mapho.vasp.ace_validation` prepares an isolated source
+The driver `python -m mapho.commands.vasp.ace_validation` prepares an isolated source
 snapshot and compares an unmodified native reference with the patched
 reference, independently constructed factors, a fresh frozen replay, a
 0.25 eV gauge-shift control, and a half-exchange negative control. It compares

@@ -4,8 +4,14 @@ Only training atoms determine scaling/centering; validation selects checkpoints.
 Native validation precedes any new test prediction. Original runs are immutable.
 """
 
-from ..source_snapshot import snapshot_package, source_hashes, source_path
-import argparse
+from ...vasp.checkpoints import (
+    read_json,
+    check_hash,
+    load_base_for_repair as get_base,
+    load_repaired_model as load_model,
+)
+
+from ...source_snapshot import snapshot_package, source_hashes, source_path
 import json
 import os
 from pathlib import Path
@@ -17,9 +23,9 @@ import h5py
 import numpy as np
 import torch
 
-from ..field_model import mace_graph
-from .model import atomic_inputs
-from .paw import (
+from ...field_model import mace_graph
+from ...vasp.model import atomic_inputs
+from ...vasp.paw import (
     sha,
     save_json,
     prepare_replay,
@@ -28,8 +34,8 @@ from .paw import (
     write_incar,
     export_operator,
 )
-from .train import load_model as load_base, paw_contract, predict
-from .paw_conditioning import (
+from ...vasp.train import paw_contract, predict
+from ...vasp.paw_conditioning import (
     ConditionedPAWModel,
     overlap_coordinates,
     scalar_projection,
@@ -37,15 +43,6 @@ from .paw_conditioning import (
 from .training_validation import parallel, LAUNCHER, KS
 
 LABELS = ("silu_local", "silu_none", "silu_full", "gelu_none", "gelu_full")
-
-
-def read_json(path):
-    return json.loads(Path(path).read_text())
-
-
-def check_hash(path, digest):
-    if sha(path) != digest:
-        raise ValueError(f"Changed provenance input: {path}")
 
 
 def prepare(root, training, refine_from=None):
@@ -138,14 +135,6 @@ def prepare_evaluation(root, trained):
         source_sha256=source_hashes(snapshot),
     )
     save_json(root / "manifest.json", m)
-
-
-def get_base(manifest, label, device):
-    spec = manifest["models"][label]
-    root = Path(spec["root"])
-    check_hash(root / "manifest.json", spec["manifest_sha256"])
-    check_hash(root / spec["mode"] / "model.pt", spec["checkpoint_sha256"])
-    return load_base(root, spec["mode"], device)
 
 
 def gather(base, entries, device):
@@ -415,31 +404,6 @@ def fit(root, label):
     predictions(root, label, "validation", model=model)
 
 
-def load_model(root, label, device="cuda"):
-    root = Path(root)
-    m = read_json(root / "manifest.json")
-    if "trained_root" in m:
-        trained = Path(m["trained_root"])
-        check_hash(trained / "manifest.json", m["trained_manifest_sha256"])
-        check_hash(trained / label / "model.pt", m["trained_checkpoints"][label])
-        return load_model(trained, label, device)
-    path = root / label / "model.pt"
-    check_hash(path, read_json(root / label / "training.json")["checkpoint_sha256"])
-    checkpoint = torch.load(path, map_location="cpu", weights_only=False)
-    if (
-        checkpoint["manifest_sha256"] != sha(root / "manifest.json")
-        or checkpoint["label"] != label
-    ):
-        raise ValueError("Repair contract changed")
-    model = (
-        ConditionedPAWModel(get_base(m, label, device), checkpoint["specifications"])
-        .to(device)
-        .eval()
-    )
-    model.heads.load_state_dict(checkpoint["heads"])
-    return model
-
-
 def predictions(root, label, split, model=None):
     torch.set_num_threads(1)
     root = Path(root)
@@ -659,7 +623,15 @@ def execute(root, phase):
         return [
             (
                 f"{command}_{label}",
-                [sys.executable, "-u", "-m", __spec__.name, command, str(root), label],
+                [
+                    sys.executable,
+                    "-u",
+                    "-m",
+                    "mapho.commands.vasp.paw_repair",
+                    command,
+                    str(root),
+                    label,
+                ],
             )
             for label in labels
         ]
@@ -682,7 +654,7 @@ def execute(root, phase):
                     sys.executable,
                     "-u",
                     "-m",
-                    __spec__.name,
+                    "mapho.commands.vasp.paw_repair",
                     "bands",
                     str(root),
                     phase,
@@ -694,39 +666,3 @@ def execute(root, phase):
         devices,
     )
     summarize(root, phase)
-
-
-if __name__ == "__main__":
-    p = argparse.ArgumentParser(description=__doc__)
-    sub = p.add_subparsers(dest="command", required=True)
-    q = sub.add_parser("prepare")
-    q.add_argument("root")
-    q.add_argument("training")
-    q.add_argument("--refine-from")
-    q = sub.add_parser("prepare-evaluation")
-    q.add_argument("root")
-    q.add_argument("trained")
-    q = sub.add_parser("execute")
-    q.add_argument("root")
-    q.add_argument("phase", choices=["validation", "test"])
-    for name in ("fit", "predict-test"):
-        q = sub.add_parser(name)
-        q.add_argument("root")
-        q.add_argument("label", choices=LABELS)
-    q = sub.add_parser("bands")
-    q.add_argument("root")
-    q.add_argument("split")
-    q.add_argument("index", type=int)
-    a = p.parse_args()
-    if a.command == "prepare":
-        prepare(a.root, a.training, a.refine_from)
-    elif a.command == "prepare-evaluation":
-        prepare_evaluation(a.root, a.trained)
-    elif a.command == "fit":
-        fit(a.root, a.label)
-    elif a.command == "predict-test":
-        predictions(a.root, a.label, "test")
-    elif a.command == "bands":
-        band_case(a.root, a.split, a.index)
-    else:
-        execute(a.root, a.phase)

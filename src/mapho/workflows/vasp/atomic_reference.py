@@ -5,7 +5,6 @@ fixed. No target CHGCAR, WAVECAR, potential, D matrix, or eigenvalues is read.
 The target FFT dimensions are used only as a common numerical discretization.
 """
 
-import argparse
 import json
 import os
 from pathlib import Path
@@ -17,7 +16,14 @@ import h5py
 import numpy as np
 from ase.io import read
 
-from .paw import prepare_reference, run, export_operator, save_json, sha, write_incar
+from ...vasp.paw import (
+    prepare_reference,
+    run,
+    export_operator,
+    save_json,
+    sha,
+    write_incar,
+)
 
 
 def prepare(dataset, root):
@@ -147,7 +153,7 @@ def execute(root):
                     sys.executable,
                     "-u",
                     "-m",
-                    "mapho.vasp.atomic_reference",
+                    "mapho.commands.vasp.atomic_reference",
                     "worker",
                     str(root),
                     str(i),
@@ -172,23 +178,3 @@ def execute(root):
         root / "completion.json",
         dict(complete=True, count=len(m["cases"]), job=os.environ.get("SLURM_JOB_ID")),
     )
-
-
-if __name__ == "__main__":
-    p = argparse.ArgumentParser(description=__doc__)
-    sub = p.add_subparsers(dest="command", required=True)
-    q = sub.add_parser("prepare")
-    q.add_argument("dataset")
-    q.add_argument("root")
-    q = sub.add_parser("execute")
-    q.add_argument("root")
-    q = sub.add_parser("worker")
-    q.add_argument("root")
-    q.add_argument("index", type=int)
-    a = p.parse_args()
-    if a.command == "prepare":
-        prepare(a.dataset, a.root)
-    elif a.command == "worker":
-        worker(a.root, a.index)
-    else:
-        execute(a.root)

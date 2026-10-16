@@ -1,7 +1,6 @@
 """Controlled GELU versus SiLU test using existing Si16 and primitive references."""
 
-from ..source_snapshot import snapshot_package, source_hashes
-import argparse
+from ...source_snapshot import snapshot_package, source_hashes
 import hashlib
 import json
 import os
@@ -12,7 +11,7 @@ import sys
 import h5py
 import numpy as np
 
-from .paw import prepare_replay, read_bands, run, sha, save_json
+from ...vasp.paw import prepare_replay, read_bands, run, sha, save_json
 from .training_validation import LAUNCHER, KS, parallel
 
 
@@ -31,8 +30,8 @@ def parameters_sha(model):
 
 def prepare(root, baseline, primitive):
     import torch
-    from .model import PAWModel
-    from ..field_model import FieldModelConfig
+    from ...vasp.model import PAWModel
+    from ...field_model import FieldModelConfig
 
     root, baseline, primitive = map(
         lambda p: Path(p).resolve(), (root, baseline, primitive)
@@ -143,7 +142,7 @@ def band_case(root, mode, index):
         raise ValueError("Executable changed")
     if index == "primitive":
         import torch
-        from .train import load_model, predict
+        from ...vasp.train import load_model, predict
 
         torch.set_num_threads(1)
         original = Path(s["primitive"])
@@ -267,7 +266,7 @@ def execute(root):
                 sys.executable,
                 "-u",
                 "-m",
-                "mapho.vasp.training_validation",
+                "mapho.commands.vasp.training_validation",
                 "fit",
                 str(root),
                 mode,
@@ -288,7 +287,7 @@ def execute(root):
                         sys.executable,
                         "-u",
                         "-m",
-                        "mapho.vasp.activation_ablation",
+                        "mapho.commands.vasp.activation_ablation",
                         "bands",
                         str(root),
                         mode,
@@ -298,28 +297,3 @@ def execute(root):
             )
     parallel(root, commands, devices)
     summarize(root)
-
-
-if __name__ == "__main__":
-    p = argparse.ArgumentParser(description=__doc__)
-    sub = p.add_subparsers(dest="command", required=True)
-    q = sub.add_parser("prepare")
-    q.add_argument("root")
-    q.add_argument("baseline")
-    q.add_argument("primitive")
-    for name in ("execute", "summarize"):
-        q = sub.add_parser(name)
-        q.add_argument("root")
-    q = sub.add_parser("bands")
-    q.add_argument("root")
-    q.add_argument("mode", choices=["none", "full"])
-    q.add_argument("index")
-    a = p.parse_args()
-    if a.command == "prepare":
-        prepare(a.root, a.baseline, a.primitive)
-    elif a.command == "bands":
-        band_case(a.root, a.mode, a.index)
-    elif a.command == "summarize":
-        summarize(a.root)
-    else:
-        execute(a.root)

@@ -1,6 +1,5 @@
 """Run a bounded subset of an already frozen reference dataset on debug GPUs."""
 
-import argparse
 import json
 import os
 from pathlib import Path
@@ -8,7 +7,7 @@ import sys
 
 from .material_dataset import convergence, audit
 from .training_validation import parallel
-from .paw import sha, save_json
+from ...vasp.paw import sha, save_json
 
 
 def execute(root, start, stop):
@@ -34,7 +33,7 @@ def execute(root, start, stop):
                     sys.executable,
                     "-u",
                     "-m",
-                    "mapho.vasp.material_dataset",
+                    "mapho.commands.vasp.material_dataset",
                     "worker",
                     str(root),
                     "samples",
@@ -49,12 +48,3 @@ def execute(root, start, stop):
     )
     if all((Path(row["directory"]) / "report.json").exists() for row in m["samples"]):
         audit(root)
-
-
-if __name__ == "__main__":
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("root")
-    p.add_argument("start", type=int)
-    p.add_argument("stop", type=int)
-    a = p.parse_args()
-    execute(a.root, a.start, a.stop)

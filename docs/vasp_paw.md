@@ -145,7 +145,7 @@ all requested bands/k points. Checks cover:
 5. Three k points absent from the SCF mesh: operator replay versus unmodified
    VASP's independent `ICHARG=11` calculation using the converged CHGCAR.
 
-The automated driver is `python -m mapho.vasp.paw_validation STUDY_ROOT`.
+The automated driver is `python -m mapho.commands.vasp.paw_validation STUDY_ROOT`.
 It refuses to overwrite existing runs. `validation.json` is the authoritative
 record of which native checks completed and passed.
 
@@ -234,7 +234,7 @@ refuses nonzero fixed `NUPDOWN` constraints rather than silently changing one.
 Shifts are applied as `V_sigma += c_sigma`, `D_sigma += c_sigma Q`. Equal
 shifts are a common gauge change; unequal shifts change the spin splitting.
 
-The collinear acceptance driver is `python -m mapho.vasp.spin_validation ROOT`.
+The collinear acceptance driver is `python -m mapho.commands.vasp.spin_validation ROOT`.
 The scratch study `runs/vasp_paw_spin_v1` contains the private extended build,
 input files, source snapshot, full outputs, and `validation.json`. It uses
 one-atom bcc Fe at 2.86 A, 600 eV, 2x2x2 k sampling, 12 bands per spin,
@@ -290,7 +290,7 @@ operators; a magnetic MACE/FNO model and AFM validation remain future work.
 
 ## Si16 reference-data pilot
 
-`mapho.vasp.silicon_dataset` prepares 24 independent nonmagnetic PBE Si
+`mapho.workflows.vasp.silicon_dataset` prepares 24 independent nonmagnetic PBE Si
 configurations. Each is a 2x2x2 replica of the two-atom diamond primitive
 cell, giving 16 atoms. Starting from a=5.43 A, configurations receive
 isotropic strain within +/-2%, symmetric strain components within +/-0.5%,
@@ -766,7 +766,7 @@ repeated SiLU/FNO field differs from its original prediction by at most
 evaluation snapshot preserves the original training source and manifests.
 
 A repaired checkpoint is loaded using
-`mapho.vasp.paw_repair.load_model(repair_root, label, device)` and passed to
+`mapho.vasp.checkpoints.load_repaired_model(repair_root, label, device)` and passed to
 `mapho.vasp.train.predict`. The latter still receives only the geometry/atomic
 baseline. Its predicted potential and D feed the existing `prepare_replay`
 interface; the VASP executable and native projectors/Q are unchanged.
@@ -821,7 +821,7 @@ both native and rescaled matrix coordinates on training and validation data.
 For inference, load a repaired model rather than the original failed readout:
 
 ```python
-from mapho.vasp.paw_repair import load_model
+from mapho.vasp.checkpoints import load_repaired_model as load_model
 from mapho.vasp.train import predict
 from mapho.vasp.paw import sha, prepare_replay
 
@@ -864,8 +864,8 @@ FNO checkpoints on the unstrained primitive parents of the training structures.
 LiF uses the original LiF16 models; MoS2 uses the conditioned-v3 PAW heads with
 the original field models frozen. No primitive reference labels are used for
 prediction or model selection. The new driver is
-`mapho.vasp.binary_primitive_bands`; plotting uses
-`mapho.vasp.binary_primitive_plot`. All calculations and artifacts are in scratch.
+`mapho.workflows.vasp.binary_primitive_bands`; plotting uses
+`mapho.workflows.vasp.binary_primitive_plot`. All calculations and artifacts are in scratch.
 
 The two-atom rocksalt cell has conventional a=4.03 A. The six-atom 2H bilayer has
 in-plane a=3.18 A, Mo-plane separation 6.15 A, layer S-S thickness 3.19 A, and
@@ -918,7 +918,7 @@ metrics, input/checkpoint audit, and passing PDF text/collision checks.
 `runs/vasp_mos2_joint_conditioned_v1` contains joint fine-tuning of the repaired
 SiLU pointwise and FNO models, followed by native VASP validation, test and
 primitive band calculations. LiF retains its original jointly trained model.
-The driver is `mapho.vasp.paw_joint`; load the new models with its `load_model`
+The driver is `mapho.workflows.vasp.paw_joint`; load the new models with its `load_model`
 function, using labels `silu_none` or `silu_full`.
 
 Both losses now propagate through the shared MACE backbone. The potential

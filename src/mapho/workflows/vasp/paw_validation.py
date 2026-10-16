@@ -1,6 +1,5 @@
 """Small native PAW replay acceptance study; all calculation files stay in scratch."""
 
-import argparse
 import copy
 import json
 from pathlib import Path
@@ -9,7 +8,7 @@ import shutil
 from ase.build import bulk
 import numpy as np
 
-from .paw import (
+from ...vasp.paw import (
     compare,
     export_operator,
     prepare_reference,
@@ -187,9 +186,3 @@ def validate(root):
     if not report["passed"]:
         raise RuntimeError("PAW replay acceptance failed; see validation.json")
     return report
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("root", type=Path)
-    print(json.dumps(validate(parser.parse_args().root), indent=2))

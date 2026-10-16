@@ -6,7 +6,6 @@ including the hybrid fraction, rather than S^-1 H acting on coefficients.
 This Python module contains no VASP source or source-patching anchors.
 """
 
-import argparse
 import json
 from pathlib import Path
 
@@ -95,12 +94,11 @@ def compare_native_factors(samples, mapho_factors, native_factors):
     )
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("samples", type=Path)
-    parser.add_argument("output", type=Path)
-    args = parser.parse_args()
-    print(json.dumps(build_ace_from_samples(args.samples, args.output), indent=2))
+def main(argv=None):
+    """Compatibility entry point; argument parsing lives in mapho.commands.vasp."""
+    from ..commands.vasp.exchange import main as command
+
+    return command(argv)
 
 
 if __name__ == "__main__":

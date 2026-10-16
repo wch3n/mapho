@@ -84,7 +84,9 @@ def test_snapshot_runs_nested_backends_without_source_tree_fallback(tmp_path):
         "qe/files.py",
         "vasp/model.py",
         "vasp/paw.py",
-        "vasp/silicon_dataset.py",
+        "vasp/checkpoints.py",
+        "commands/vasp/paw.py",
+        "workflows/vasp/silicon_dataset.py",
     } <= hashes.keys()
     assert not list(package.rglob("*_patch.py"))
     assert not list(package.rglob("*.inc"))

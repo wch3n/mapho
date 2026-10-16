@@ -1,7 +1,6 @@
 """Apply frozen Si16 PAW checkpoints to a two-atom Si band structure."""
 
-from ..source_snapshot import snapshot_package, source_hashes
-import argparse
+from ...source_snapshot import snapshot_package, source_hashes
 import json
 import os
 from pathlib import Path
@@ -11,7 +10,7 @@ import sys
 import h5py
 import numpy as np
 
-from .paw import (
+from ...vasp.paw import (
     prepare_reference,
     prepare_replay,
     run,
@@ -169,7 +168,7 @@ def reference(root, name):
 
 def predict_all(root):
     import torch
-    from .train import load_model, predict
+    from ...vasp.train import load_model, predict
 
     torch.set_num_threads(1)
     root = Path(root)
@@ -343,7 +342,7 @@ def execute(root):
                 sys.executable,
                 "-u",
                 "-m",
-                "mapho.vasp.primitive_bands",
+                "mapho.commands.vasp.primitive_bands",
                 stage,
                 str(root),
                 name,
@@ -371,29 +370,3 @@ def execute(root):
         devices,
     )
     analyze(root)
-
-
-if __name__ == "__main__":
-    p = argparse.ArgumentParser(description=__doc__)
-    sub = p.add_subparsers(dest="command", required=True)
-    q = sub.add_parser("prepare")
-    q.add_argument("root")
-    q.add_argument("training")
-    for stage in ("reference", "bands"):
-        q = sub.add_parser(stage)
-        q.add_argument("root")
-        q.add_argument("name")
-    for stage in ("execute", "analyze"):
-        q = sub.add_parser(stage)
-        q.add_argument("root")
-    a = p.parse_args()
-    if a.command == "prepare":
-        prepare(a.root, a.training)
-    elif a.command == "reference":
-        reference(a.root, a.name)
-    elif a.command == "bands":
-        bands(a.root, a.name)
-    elif a.command == "analyze":
-        analyze(a.root)
-    else:
-        execute(a.root)

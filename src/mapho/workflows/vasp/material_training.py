@@ -1,7 +1,6 @@
 """Matched local/pointwise/3D-FNO and SiLU/GELU binary PAW experiments."""
 
-from ..source_snapshot import snapshot_package, source_hashes, source_path
-import argparse
+from ...source_snapshot import snapshot_package, source_hashes, source_path
 import json
 import os
 from pathlib import Path
@@ -11,7 +10,7 @@ import sys
 import h5py
 import numpy as np
 
-from .paw import (
+from ...vasp.paw import (
     prepare_reference,
     prepare_replay,
     write_incar,
@@ -32,7 +31,7 @@ def native_checks(training):
     import torch
     from e3nn import o3
     from ase.io import read
-    from .model import native_projector_transform
+    from ...vasp.model import native_projector_transform
 
     torch.set_num_threads(1)
     root = Path(training)
@@ -209,7 +208,7 @@ def bands_case(root, index):
 
 def execute(root):
     from .atomic_reference import prepare as prepare_atomic, execute as execute_atomic
-    from .train import prepare as prepare_training
+    from ...vasp.train import prepare as prepare_training
 
     root = Path(root).resolve()
     study = read_json(root / "study.json")
@@ -235,15 +234,15 @@ def execute(root):
         sys.executable,
         "-u",
         "-m",
-        "mapho.vasp.material_training",
+        "mapho.commands.vasp.material_training",
         "native-checks",
         str(root / "silu"),
     ]
     parallel(root, [("native_checks", subprocess_command)], devices[:1])
     # The two activations must start with exactly the same parameters.
     import torch
-    from .model import PAWModel
-    from ..field_model import FieldModelConfig
+    from ...vasp.model import PAWModel
+    from ...field_model import FieldModelConfig
     from .activation_ablation import parameters_sha
 
     initial = {}
@@ -278,7 +277,7 @@ def execute(root):
                 sys.executable,
                 "-u",
                 "-m",
-                "mapho.vasp.training_validation",
+                "mapho.commands.vasp.training_validation",
                 "fit",
                 str(root / act),
                 mode,
@@ -298,7 +297,7 @@ def execute(root):
                     sys.executable,
                     "-u",
                     "-m",
-                    "mapho.vasp.material_training",
+                    "mapho.commands.vasp.material_training",
                     "bands",
                     str(root),
                     str(i),
@@ -361,27 +360,3 @@ def prepare(root, dataset):
     )
     save_json(root / "study.json", study)
     return study
-
-
-if __name__ == "__main__":
-    p = argparse.ArgumentParser(description=__doc__)
-    sub = p.add_subparsers(dest="command", required=True)
-    q = sub.add_parser("prepare")
-    q.add_argument("root")
-    q.add_argument("dataset")
-    q = sub.add_parser("execute")
-    q.add_argument("root")
-    q = sub.add_parser("native-checks")
-    q.add_argument("training")
-    q = sub.add_parser("bands")
-    q.add_argument("root")
-    q.add_argument("index", type=int)
-    a = p.parse_args()
-    if a.command == "prepare":
-        prepare(a.root, a.dataset)
-    elif a.command == "execute":
-        execute(a.root)
-    elif a.command == "native-checks":
-        native_checks(a.training)
-    else:
-        bands_case(a.root, a.index)
