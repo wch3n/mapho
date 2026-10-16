@@ -503,6 +503,34 @@ def read_bands(folder):
         occupations, bands[:, :, :, 1], atol=5.1e-5, rtol=0
     ):
         raise ValueError("EIGENVAL/XML occupations differ beyond printed precision")
+    # XML prints reciprocal coordinates to eight decimal places. Preserve
+    # the more precise native mesh when available, so fractions such as 1/6
+    # can be compared with binary operator exports without losing precision.
+    mesh_path = Path(folder) / "IBZKPT"
+    if mesh_path.exists():
+        with mesh_path.open() as stream:
+            next(stream)
+            count = int(next(stream).strip())
+            coordinates = next(stream).strip().lower()
+            if count != len(kpoints) or not coordinates.startswith("r"):
+                raise ValueError("IBZKPT requires the matching reciprocal mesh")
+            mesh = np.array(
+                [list(map(float, next(stream).split())) for _ in range(count)]
+            )
+        if (
+            mesh.shape != (count, 4)
+            or not np.isfinite(mesh).all()
+            or not np.allclose(mesh[:, :3], kpoints, atol=5.1e-9, rtol=0)
+            or np.any(mesh[:, 3] < 0)
+            or mesh[:, 3].sum() <= 0
+            or not np.allclose(
+                mesh[:, 3] / mesh[:, 3].sum(), weights, atol=5.1e-9, rtol=0
+            )
+        ):
+            raise ValueError(
+                "IBZKPT/XML k points or weights differ beyond printed precision"
+            )
+        kpoints = mesh[:, :3]
     result = dict(
         eigenvalues_eV=energies[0] if nspin == 1 else energies,
         occupations=occupations[0] if nspin == 1 else occupations,
@@ -677,6 +705,8 @@ def export_operator(folder, output, *, components_only=False):
         on_site_basis="native VASP projector order; radial channel then native real spherical harmonics",
         gauge="native exported total-potential gauge; D and potential must be changed consistently",
     )
+    if (folder / "IBZKPT").exists():
+        metadata["source_sha256"]["IBZKPT"] = sha(folder / "IBZKPT")
     if atomic_only:
         metadata.update(atomic_export_only=True, diagonalized=False, electronic_steps=0)
     if hybrid:

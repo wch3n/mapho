@@ -51,7 +51,17 @@ These Python functions require the existing prepared reference manifest and
 native exported components. The data transport uses a MAPHO-defined format,
 with explicit dimensions, lattice, k coordinates, reciprocal indices, and
 complex128 arrays. Both Python and the private importer reject mismatched
-metadata and malformed records. The Python constructor is also available as:
+metadata and malformed records.
+
+Keep `IBZKPT` with the native outputs. The band reader uses its reciprocal
+coordinates when available, after checking the mesh and weights against
+`vasprun.xml`. XML prints coordinates to eight decimal places, which loses
+precision for fractions such as 1/6. Using `IBZKPT` preserves the native
+coordinates for comparison with the binary exchange archive. Operator
+exports record the hash of this file. The strict comparison between the
+exchange mesh and the native band mesh remains unchanged.
+
+The Python constructor is also available as:
 
 ```sh
 mapho-vasp validate exchange MAPHO_FOCK.bin operator.ace.bin

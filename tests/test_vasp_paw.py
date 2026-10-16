@@ -187,3 +187,26 @@ def test_eigenval_precision_is_preserved_and_crosschecked(tmp_path):
     (tmp_path / "EIGENVAL").write_text(text.replace("1.234567", "1.235567"))
     with pytest.raises(ValueError, match="printed precision"):
         read_bands(tmp_path)
+
+
+@pytest.mark.parametrize("fraction", [1 / 6, 1 / 3, -1 / 6])
+def test_native_mesh_precision_survives_xml_rounding(tmp_path, fraction):
+    (tmp_path / "vasprun.xml").write_text(f"""<modeling>
+      <kpoints><varray name="kpointlist"><v>{fraction:.8f} 0 0</v></varray>
+      <varray name="weights"><v>1.00000000</v></varray></kpoints>
+      <calculation><eigenvalues><array><set><set comment="spin 1">
+      <set comment="kpoint 1"><r>1.2346 1</r><r>2.3457 0</r></set>
+      </set></set></array></eigenvalues></calculation></modeling>""")
+    (tmp_path / "EIGENVAL").write_text(
+        "header\n" * 5 + f"2 1 2\n\n{fraction:.7e} 0 0 1\n1 1.234567 1\n2 2.345678 0\n"
+    )
+    mesh = tmp_path / "IBZKPT"
+    mesh.write_text(f"Native mesh\n1\nReciprocal lattice\n{fraction:.14f} 0 0 1\n")
+    np.testing.assert_allclose(
+        read_bands(tmp_path)["kpoints"], [[fraction, 0, 0]], atol=1e-14, rtol=0
+    )
+    mesh.write_text(
+        f"Changed mesh\n1\nReciprocal lattice\n{fraction + 1e-6:.14f} 0 0 1\n"
+    )
+    with pytest.raises(ValueError, match="IBZKPT/XML"):
+        read_bands(tmp_path)
