@@ -1,4 +1,4 @@
-"""PAW plus externally constructed ACE; scalar, one rank, fixed reciprocal mesh.
+"""PAW plus externally constructed ACE on a fixed scalar reciprocal mesh.
 
 ACE is exact on its construction subspace, not on arbitrary orbitals. Its
 factors include the nonlocal PAW exchange action and exchange fraction;
@@ -7,6 +7,7 @@ the matching exported D retains VASP's on-site contribution.
 
 import json
 import math
+from numbers import Integral
 from pathlib import Path
 
 import h5py
@@ -269,9 +270,13 @@ def _require_pbe0(settings):
 
 
 def prepare_hybrid_replay(
-    operator, folder, *, potential=None, d=None, shift_eV=0.0, ace_scale=1.0
+    operator, folder, *, potential=None, d=None, shift_eV=0.0, ace_scale=1.0, kpar=1
 ):
+    """Prepare replay with one MPI rank per k-point group in the private bridge."""
     operator, folder = Path(operator).resolve(), Path(folder).resolve()
+    if isinstance(kpar, bool) or not isinstance(kpar, Integral) or kpar < 1:
+        raise ValueError("kpar must be a positive integer matching the MPI rank count")
+    kpar = int(kpar)
     if not np.isfinite(ace_scale) or ace_scale < 0:
         raise ValueError("ACE scale must be finite and nonnegative")
     with h5py.File(operator) as f:
@@ -284,6 +289,8 @@ def prepare_hybrid_replay(
         if sha(path) != meta[key + "_sha256"]:
             raise ValueError(f"Archived {key} changed")
     ace = read_ace(meta["ace_file"])
+    if kpar > int(ace["dims"][2]):
+        raise ValueError("kpar cannot exceed the number of archived k points")
     m = prepare_replay(
         meta["components"],
         folder,
@@ -310,7 +317,10 @@ def prepare_hybrid_replay(
         NELMDL=0,
         LWAVE=False,
         LCHARG=False,
+        KPAR=kpar,
+        NCORE=1,
     )
+    s.pop("NPAR", None)
     write_incar(folder / "INCAR", s)
     write_ace(folder / "MAPHO_ACE.bin", ace, scale=ace_scale)
     (folder / "MAPHO_ACE_IMPORT").touch()
@@ -324,6 +334,8 @@ def prepare_hybrid_replay(
         exact_arbitrary_fock_action=False,
         exchange_application="private MAPHO contraction; native ACE contraction bypassed",
         ace_scale=ace_scale,
+        required_mpi_ranks=kpar,
+        parallel_layout="one MPI rank per k-point group",
         operator=str(operator),
         operator_sha256=sha(operator),
         inputs={

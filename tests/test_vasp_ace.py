@@ -174,6 +174,29 @@ def test_replay_is_frozen_and_reads_no_reference_wavefunctions(tmp_path):
     assert not any((folder / n).exists() for n in ("WAVECAR", "CHGCAR"))
     assert m["complete_operator_components"] and not m["exact_arbitrary_fock_action"]
     assert "omitted_components" not in m
+    assert (s["KPAR"], s["NCORE"], m["required_mpi_ranks"]) == (1, 1, 1)
+
+
+def test_replay_prepares_kpoint_parallelism_without_changing_operator(tmp_path):
+    operator = hybrid_archive(tmp_path)
+    serial = tmp_path / "serial"
+    parallel = tmp_path / "parallel"
+    prepare_hybrid_replay(operator, serial)
+    m = prepare_hybrid_replay(operator, parallel, kpar=2)
+    assert (m["settings"]["KPAR"], m["settings"]["NCORE"]) == (2, 1)
+    assert m["required_mpi_ranks"] == 2
+    for name in ("POT", "MAPHO_PAW.dat", "MAPHO_ACE.bin", "KPOINTS"):
+        assert (serial / name).read_bytes() == (parallel / name).read_bytes()
+    with pytest.raises(ValueError, match="number of archived k points"):
+        prepare_hybrid_replay(operator, tmp_path / "too_many", kpar=3)
+    assert not (tmp_path / "too_many").exists()
+
+
+@pytest.mark.parametrize("kpar", [0, -1, 1.5, "4", True])
+def test_invalid_replay_parallelism_is_rejected_before_preparation(tmp_path, kpar):
+    with pytest.raises(ValueError, match="positive integer"):
+        prepare_hybrid_replay(tmp_path / "missing.h5", tmp_path / "replay", kpar=kpar)
+    assert not (tmp_path / "replay").exists()
 
 
 def test_replay_detects_tampering_and_invalid_scale(tmp_path):

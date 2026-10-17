@@ -7,10 +7,12 @@ their **full Fock actions**, constructs compressed factors with the independent
 Hamiltonian diagonalization. Native ACE factors are optional validation data;
 they are not the input to the independent factorization.
 
-The initial scope is nonmagnetic, scalar PBE0, a complex standard executable,
-one MPI rank, and a fixed cell, FFT grid, reciprocal ordering, k mesh, and number
-of bands. AEXX is 0.25, HFSCREEN is zero, and HFRCUT is zero. The implementation
-is not yet an arbitrary-k, spin-polarized, SOC, or distributed interface.
+The scope is nonmagnetic, scalar PBE0 with a complex standard executable and
+a fixed cell, FFT grid, reciprocal ordering, k mesh, and number of bands.
+AEXX is 0.25, HFSCREEN is zero, and HFRCUT is zero. The private MPI extension
+supports one rank per k-point group, with `KPAR` equal to the MPI rank count
+and `NCORE=1`. Band and plane-wave distribution within a group, arbitrary-k
+exchange, spin polarization, and SOC remain outside this interface.
 
 ## Operator and conventions
 
@@ -52,6 +54,45 @@ native exported components. The data transport uses a MAPHO-defined format,
 with explicit dimensions, lattice, k coordinates, reciprocal indices, and
 complex128 arrays. Both Python and the private importer reject mismatched
 metadata and malformed records.
+
+### Parallel export and replay
+
+Use a private build with the MPI extension for calculations with more than
+one rank. For four GPUs, set `KPAR=4` and `NCORE=1` in the native reference
+and launch four MPI ranks, one per GPU. The export collects the complete
+orbital and action block from the owner of each k point. One rank writes the
+archive in the same format used by the serial interface.
+
+Prepare a matching frozen replay with:
+
+```python
+from mapho.vasp.ace import prepare_hybrid_replay
+
+prepare_hybrid_replay("operator.h5", "replay", kpar=4)
+```
+
+Launch this directory with four MPI ranks and the same private executable.
+The GPU path needs a CUDA-aware MPI transport. With the Open MPI 4 build in
+the local NVHPC installation, the single-node launcher is:
+
+```sh
+cd replay
+mpirun --bind-to none --mca pml ob1 --mca btl self,smcuda -np 4 /path/to/vasp
+```
+
+The `smcuda` transport handles GPU buffers during native communication
+between k-point groups. The earlier serial launcher forced `self,vader`,
+which does not support this multi-GPU path. Other MPI installations may use
+a CUDA-enabled UCX transport. See the
+[CUDA-aware Open MPI documentation](https://www.open-mpi.org/faq/?category=runcuda).
+
+The default `kpar=1` preserves serial preparation. The manifest records the
+required rank count, and the native bridge rejects layouts with more than
+one rank per group. Each rank reads and checks the archive, then loads the
+factors for its assigned k points. PAW matrices are replicated across groups
+and must not be summed over those groups. This extension changes the
+distribution of the calculation without changing the learned model or the
+operator archive.
 
 Keep `IBZKPT` with the native outputs. The band reader uses its reciprocal
 coordinates when available, after checking the mesh and weights against
@@ -115,6 +156,13 @@ It is not exact on arbitrary trial states or at new k points. Changed occupied
 orbitals require new full exchange actions and rebuilt factors. Passing a
 frozen native replay therefore validates the interface, not the predictive
 accuracy of a learned hybrid model or an exchange speedup.
+Constructing ACE requires exchange actions on the full construction block.
+A fast application of the compressed operator does not remove this initial
+cost. Any timing of hybrid inference must include preparation of its inputs,
+construction of exchange, factorization, and final diagonalization. In this
+pilot the factors come from the converged hybrid reference, so their reuse
+does not establish an SCF-free hybrid prediction. Predicting exchange actions
+or factors would require a separate model and validation of its target subspace.
 The replay targets eigenvalues of the frozen generalized eigenproblem;
 hybrid total energies, forces, stress, and a learned hybrid SCF loop are outside
 this implementation and are not certified by its convergence marker.
